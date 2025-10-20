@@ -1,0 +1,197 @@
+import java.util.Arrays;
+import java.util.List;
+import java.util.Scanner;
+import java.util.ArrayList;
+
+/**
+ * AddFish.java
+ * Handles manual addition of a new fish to the Florida Native Fish Database.
+ * - Prompts the user for fish information including average size with unit.
+ * - Performs input validation for all attributes.
+ * - Prevents invalid entries and ensures proper data formats.
+ * - Adds valid Fish objects to the shared fish list.
+ */
+public class AddFish{
+    private Scanner scanner;
+    private List<Fish>fishList;
+
+    public AddFish(List<Fish>fishList){
+        this.scanner=new Scanner(System.in);
+        this.fishList=fishList;
+    }
+    public void addFish(){
+        //------Common Name------
+        String commonName="";
+        while(true){
+            System.out.print("Enter Fish Common Name (letters only) (press ~ to go back, ? for format info): ");
+            commonName=scanner.nextLine().trim();
+            if(commonName.equals("~"))return;
+            if(commonName.equals("?")){
+                showFormat();
+                continue;
+            }
+            if(!commonName.matches("[a-zA-Z ]+")){
+                System.out.println("Invalid input. Letters only.");
+            } else break;
+        }
+        //------Scientific Name------
+        String scientificName = "";
+        while(true) {
+            System.out.print("Enter Scientific Name (letters only): ");
+            scientificName = scanner.nextLine().trim();
+            if (!scientificName.matches("[a-zA-Z ]+")) {
+                System.out.println("Invalid input. Letters only.");
+            } else break;
+        }
+        //------Average Size------
+        double averageSize=0.0;
+        String sizeUnit="";
+        List<String>validUnits=Arrays.asList("mm", "cm", "m", "in", "ft", "yd");//Allows measuring units
+        while(true){
+            System.out.print("Enter Average Size with unit (e.g., 12 in, 30 cm, 0.5 m): ");
+            String sizeInput=scanner.nextLine().trim().toLowerCase();
+            if(sizeInput.isEmpty()){
+                System.out.println("Average size cannot be empty.");
+                continue;
+            }
+            String[]parts=sizeInput.split("\\s+");
+            if(parts.length!=2){
+                System.out.println("Invalid format. Must include numeric value and unit (e.g., 12 in).");
+                continue;
+            }
+            String numericPart=parts[0].replaceAll("[^\\d.]","");
+            sizeUnit=parts[1];
+            if(!validUnits.contains(sizeUnit)){
+                System.out.println("Invalid unit. Use one of: mm, cm, m, in, ft, yd.");
+                continue;
+            }
+            try{
+                averageSize=Double.parseDouble(numericPart);
+                if(averageSize<=0){
+                    System.out.println("Size must be greater than 0.");
+                    continue;
+                }
+                break;//Valid input
+            }catch(NumberFormatException e){
+                System.out.println("Invalid numeric value.");
+            }
+        }
+        //------Diet------
+        String diet ="";
+        while(true){
+            System.out.print("Enter Diet (letters only, optional leading number, comma-separated): ");
+            diet=scanner.nextLine().trim();
+            if(diet.isEmpty()){
+                System.out.println("Diet cannot be empty.");
+                continue;
+            }
+            String[]dietItems=diet.split("\\s*,\\s*");//Split by comma
+            boolean valid=true;
+            for(String item:dietItems) {
+                if(!item.matches("(\\d+\\s)?[a-zA-Z ]+")){// check each item individually
+                    valid=false;
+                    System.out.println("Invalid diet item: '"+item+"'. Example: 'algae' or '3 crabs'.");
+                    break;
+                }
+            }
+            if(valid){
+                diet=String.join(", ",dietItems);//Normalize spacing
+                break;
+            }
+        }
+        //-------Habitats------
+        List<String>habitatOptions=Arrays.asList("River", "Lake", "Swamp", "Mangrove", "Estuary", "Reef", "Spring", "Other");
+        List<String>habitats=null;
+        while(true){
+            System.out.println("Select habitats (comma-separated numbers 1–8):");
+            System.out.println("1.River 2.Lake 3.Swamp 4.Mangrove 5.Estuary 6.Reef 7.Spring 8.Other");
+            System.out.print("Enter your choice(s): ");
+            String input = scanner.nextLine().trim();
+            if(input.isEmpty()) {
+                System.out.println("You must select at least one habitat.");
+                continue;
+            }
+            String[]choices = input.split("\\s*,\\s*");
+            habitats=new ArrayList<>();
+            boolean valid=true;
+            for(String choice:choices) {
+                try{
+                    int num=Integer.parseInt(choice);
+                    if(num<1||num>8){
+                        System.out.println("Invalid choice: "+num);
+                        valid=false;
+                        break;
+                    }
+                    if(num==8){
+                        System.out.print("Enter custom habitat name: ");
+                        String custom=scanner.nextLine().trim();
+                        if(custom.isEmpty()){
+                            System.out.println("Custom habitat cannot be empty.");
+                            valid=false;
+                            break;
+                        }
+                        habitats.add(custom);
+                    }else{
+                        String habitat=habitatOptions.get(num-1);
+                        if(!habitats.contains(habitat))habitats.add(habitat);
+                    }
+                } catch(NumberFormatException e){
+                    System.out.println("Invalid input: "+choice+". Numbers only (1–8).");
+                    valid=false;
+                    break;
+                }
+            }
+            if(valid && !habitats.isEmpty())break;
+        }
+        //------Conservation Status------
+        String status="";
+        while(true){
+            System.out.println("Select Conservation Status:");
+            System.out.println("1. Least Concern 2. Near Threatened 3. Vulnerable 4. Endangered 5. Critically Endangered");
+            System.out.print("Enter choice (1-5): ");
+            String statusInput=scanner.nextLine().trim();
+            try{
+                int choice=Integer.parseInt(statusInput);
+                switch(choice){
+                    case 1->status="Least Concern";
+                    case 2->status="Near Threatened";
+                    case 3->status="Vulnerable";
+                    case 4->status="Endangered";
+                    case 5->status="Critically Endangered";
+                    default->throw new Exception();
+                }
+                break;
+            }catch(Exception e){
+                System.out.println("Invalid choice. Enter a number from 1-5.");
+            }
+        }
+        //------Fish Tag------
+        String tag="";
+        while(true){
+            System.out.print("Enter fish tag (000-00-0000): ");
+            tag=scanner.nextLine().trim();
+            if(!tag.matches("\\d{3}-\\d{2}-\\d{4}")){
+                System.out.println("Invalid tag format.");
+            }else{
+                final String tagCopy=tag;
+                boolean duplicate=fishList.stream().anyMatch(f->f.getTag().equals(tagCopy));
+                if(duplicate)System.out.println("Warning: a fish with this tag already exists. Adding anyway.");
+                break;
+            }
+        }
+        //------Create Fish------
+        Fish fish=new Fish(commonName, scientificName, averageSize, diet, habitats, status, tag);
+        fishList.add(fish);
+        System.out.println("Fish added successfully!");
+    }
+    private void showFormat(){
+        System.out.println("\nExpected format:");
+        System.out.println("Common Name: letters only (e.g., 'Bass')");
+        System.out.println("Scientific Name: letters only (e.g., 'Micropterus')");
+        System.out.println("Average Size: numeric value followed by unit. Allowed units: mm, cm, m, in, ft, yd (e.g., '12 in', '30 cm', '0.5 m')");
+        System.out.println("Diet: letters only or optional leading number + letters (comma-separated, e.g., 'algae' or '3 crabs, 2 shell fish')");
+        System.out.println("Habitats: choose numbers 1-8, comma-separated");
+        System.out.println("Conservation Status: choose 1-5");
+        System.out.println("Tag: 000-00-0000\n");
+    }
+}
