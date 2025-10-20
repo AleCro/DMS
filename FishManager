@@ -1,0 +1,395 @@
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Scanner;
+
+public class FishManager{
+    private List<Fish> fishList;
+    private Scanner scanner;
+
+    public FishManager(List<Fish>fishList){
+        this.fishList=fishList;
+        this.scanner=new Scanner(System.in);
+    }
+    public List<Fish>getFishList(){
+        return fishList;
+    }
+    //Average number of habitats per fish
+    public double calculateAverageHabitatsPerFish(){
+        if(fishList.isEmpty()) return 0.0;
+        int totalHabitats=0;
+        for (Fish fish:fishList)totalHabitats+=fish.getHabitats().size();
+        return(double)totalHabitats/fishList.size();
+    }
+    //Average size of all fish
+    public double calculateAverageSize(){
+        if(fishList.isEmpty())return 0.0;
+        double totalSize=0;
+        for(Fish fish:fishList)totalSize +=fish.getAverageSize();
+        return totalSize/fishList.size();
+    }
+    public String getTopDiversityFish(){
+        if(fishList.isEmpty())return "No fish data available.";
+        Fish topFish=null;
+        int highestScore=0;
+        for(Fish fish:fishList){
+            int score=fish.getHabitats().size()*fish.getDiet().split("\\s+").length;
+            if(score>highestScore){
+                highestScore=score;
+                topFish=fish;
+            }
+        }
+        return topFish!=null?topFish.getCommonName()+" (score: "+highestScore+")" : "No fish data available.";
+    }
+    //Show menu for managing fish: list, search, update, remove, check duplicates.
+    public void showManageMenu(){
+        while(true){
+            System.out.println("\n--- Manage Fish Menu ---");
+            System.out.println("1. List all fish");
+            System.out.println("2. Search fish by tag number");
+            System.out.println("3. Update fish by tag number");
+            System.out.println("4. Remove fish by tag number");
+            System.out.println("5. Check for duplicate tags");
+            System.out.println("~. Go back");
+            System.out.print("Enter choice: ");
+            String choice=scanner.nextLine();
+            if(choice.equals("~"))return;   //Exit menu
+            switch(choice){
+                case"1":listAllFish();break;
+                case"2":searchFishByTag();break;
+                case"3":updateFish();break;
+                case"4":removeFish();break;
+                case"5":checkDuplicateTags();break;
+                default: System.out.println("Invalid choice. Please select 1–5 or ~ to go back.");
+            }
+        }
+    }
+    //List all fish in fishList
+    private void listAllFish(){
+        if(fishList.isEmpty()){
+            System.out.println("No fish added yet.");
+            return;
+        }
+        System.out.println("\n--- All Fish ---");
+        for(Fish fish:fishList) {
+            System.out.println(fish);// Print Fish.toString()
+            System.out.println("---------------------");
+        }
+    }
+    //Search for fish by tag number
+    private void searchFishByTag(){
+        boolean searching=true;
+        while(searching){
+            System.out.print("\nEnter tag to search (~ to go back): ");
+            String tag=scanner.nextLine();
+            if(tag.equals("~"))return;//Exit search
+
+            List<Fish>matches=fishList.stream()
+                    .filter(f->f.getTag().equals(tag))
+                    .toList();
+            if(matches.isEmpty()){
+                System.out.println("Wrong tag number. Please try again.");
+            }else{
+                System.out.println("\nFound "+matches.size()+" result(s):");
+                for (int i=0;i<matches.size();i++){
+                    System.out.println((i+1)+". "+matches.get(i));
+                    System.out.println("---------------------");
+                }
+            }
+            //Ask user if they want to search again.
+            System.out.print("Would you like to search for another fish? (y/n): ");
+            if(!scanner.nextLine().equalsIgnoreCase("y"))searching=false;
+        }
+    }
+    //Inside FishManager class
+    private void updateFish(){
+        boolean updatingFish=true;
+        while(updatingFish){
+            System.out.print("\nEnter tag of the fish to update (~ to go back): ");
+            String tag=scanner.nextLine();
+            if(tag.equals("~")) return;
+            //Find matching fish
+            List<Fish>matches=fishList.stream()
+                    .filter(f->f.getTag().equals(tag))
+                    .toList();
+            if(matches.isEmpty()){
+                System.out.println("Wrong tag number. Please try again.");
+                continue;
+            }
+            Fish fishToUpdate;
+            //Handle multiple matches
+            if(matches.size()>1){
+                System.out.println("\nMultiple fish found with tag " + tag + ":");
+                for(int i=0;i<matches.size();i++){
+                    System.out.println((i+1)+". "+matches.get(i));
+                    System.out.println("---------------------");
+                }
+                System.out.print("Select which fish to update (1-"+matches.size()+", or ~ to go back): ");
+                String choiceInput=scanner.nextLine();
+                if(choiceInput.equals("~"))continue;
+                try{
+                    int choice=Integer.parseInt(choiceInput);
+                    if(choice<1||choice>matches.size()){
+                        System.out.println("Invalid selection. Returning to tag entry.");
+                        continue;
+                    }
+                    fishToUpdate=matches.get(choice-1);
+                } catch(NumberFormatException e){
+                    System.out.println("Invalid input. Returning to tag entry.");
+                    continue;
+                }
+            }else{
+                fishToUpdate=matches.get(0);
+            }
+            System.out.println("\nUpdating fish: "+fishToUpdate.getTag());
+            //Loop for updating multiple fields
+            while(true){
+                System.out.println("\nWhat would you like to update?");
+                System.out.println("1. Common Name");
+                System.out.println("2. Scientific Name");
+                System.out.println("3. Average Size");
+                System.out.println("4. Diet");
+                System.out.println("5. Habitats");
+                System.out.println("6. Conservation Status");
+                System.out.println("7. Tag");
+                System.out.println("8. Cancel/Go Back");
+                System.out.print("Enter choice: ");
+                String choice=scanner.nextLine();
+                switch(choice){
+                    case"1":
+                        System.out.print("New Common Name ("+fishToUpdate.getCommonName()+"): ");
+                        String newCommon=scanner.nextLine().trim();
+                        if(!newCommon.isEmpty() && newCommon.matches("[a-zA-Z ]+")){
+                            fishToUpdate.setCommonName(newCommon);
+                            System.out.println("Common name updated.");
+                        }else{
+                            System.out.println("Invalid input. Only letters allowed.");
+                        }
+                        break;
+                    case"2":
+                        System.out.print("New Scientific Name ("+fishToUpdate.getScientificName()+"): ");
+                        String newSci=scanner.nextLine().trim();
+                        if(!newSci.isEmpty()&&newSci.matches("[a-zA-Z ]+")){
+                            fishToUpdate.setScientificName(newSci);
+                            System.out.println("Scientific name updated.");
+                        }else{
+                            System.out.println("Invalid input. Only letters allowed.");
+                        }
+                        break;
+                    case"3"://Average size with units
+                        while(true){
+                            System.out.print("New Average Size ("+fishToUpdate.getAverageSize()+" inches): ");
+                            String sizeInput=scanner.nextLine().trim();
+                            if(sizeInput.isEmpty()){
+                                System.out.println("Size cannot be empty.");
+                                continue;
+                            }
+                            String numericPart=sizeInput.replaceAll("[^\\d.]","");
+                            String unit=sizeInput.replaceAll("[\\d.\\s]","").toLowerCase();
+                            try{
+                                double newSize=Double.parseDouble(numericPart);
+                                if(newSize<=0){
+                                    System.out.println("Size must be greater than 0.");
+                                    continue;
+                                }
+                                if(!unit.isEmpty()&&!unit.equals("inches")&&!unit.equals("cm")){
+                                    System.out.println("Invalid unit. Use 'inches' or 'cm'.");
+                                    continue;
+                                }
+                                fishToUpdate.setAverageSize(newSize);
+                                System.out.println("Average size updated.");
+                                break;
+                            }catch(NumberFormatException e){
+                                System.out.println("Invalid size format. Use e.g., 12, 12.5, 12 inches, or 30 cm.");
+                            }
+                        }
+                        break;
+                    case"4"://Diet
+                        System.out.print("New Diet ("+fishToUpdate.getDiet()+"): ");
+                        String newDiet=scanner.nextLine().trim();
+                        if(!newDiet.isEmpty()&&newDiet.matches("(\\d+\\s)?[a-zA-Z ]+")){
+                            fishToUpdate.setDiet(newDiet);
+                            System.out.println("Diet updated.");
+                        }else{
+                            System.out.println("Invalid diet format. Example: '1 Algae' or 'Insects'.");
+                        }
+                        break;
+                    case"5":updateHabitats(fishToUpdate);break;
+                    case"6":updateConservationStatus(fishToUpdate);break;
+                    case"7":updateTag(fishToUpdate);break;
+                    case"8":
+                        System.out.println("Returning to manage menu...");
+                        return;
+                    default:
+                        System.out.println("Invalid choice. Please choose 1–8.");
+                }
+                System.out.print("Would you like to update another field of this fish? (y/n): ");
+                if(!scanner.nextLine().equalsIgnoreCase("y")) break;
+            }
+            System.out.print("Would you like to update another fish? (y/n): ");
+            if(!scanner.nextLine().equalsIgnoreCase("y"))updatingFish=false;
+        }
+    }
+    //Remove fish by tag
+    private void removeFish(){
+        boolean removing=true;
+        while(removing){
+            System.out.print("\nEnter tag of the fish to remove (~ to go back): ");
+            String tag=scanner.nextLine();
+            if(tag.equals("~"))return;
+            List<Fish> matches = fishList.stream()
+                    .filter(f->f.getTag().equals(tag))
+                    .toList();
+            if(matches.isEmpty()){
+                System.out.println("Wrong tag number. Please try again.");
+            }else{
+                Fish fishToRemove;
+                //Handle multiple fish with same tag
+                if(matches.size()>1){
+                    System.out.println("\nMultiple fish found with tag "+tag+":");
+                    for(int i=0;i<matches.size();i++){
+                        System.out.println((i+1)+". "+matches.get(i));
+                        System.out.println("---------------------");
+                    }
+                    System.out.print("Select which fish to remove (1-"+matches.size()+", or ~ to go back): ");
+                    String choiceInput=scanner.nextLine();
+                    if(choiceInput.equals("~"))continue;
+                    try{
+                        int choice=Integer.parseInt(choiceInput);
+                        if(choice<1||choice>matches.size()){
+                            System.out.println("Invalid selection. Returning to tag entry.");
+                            continue;
+                        }
+                        fishToRemove=matches.get(choice-1);
+                    }catch(NumberFormatException e){
+                        System.out.println("Invalid input. Returning to tag entry.");
+                        continue;
+                    }
+                }else{
+                    fishToRemove=matches.get(0);
+                }
+                fishList.remove(fishToRemove);//Remove fish
+                System.out.println("Fish with tag "+tag+" removed successfully.");
+            }
+            System.out.print("Would you like to remove another fish? (y/n): ");
+            if(!scanner.nextLine().equalsIgnoreCase("y"))removing=false;
+        }
+    }
+    //Check for duplicate tags in fishList
+    private void checkDuplicateTags(){
+        Map<String,Integer>tagCounts=new HashMap<>();
+        for(Fish fish:fishList){
+            tagCounts.put(fish.getTag(),tagCounts.getOrDefault(fish.getTag(),0)+1);
+        }
+        boolean duplicatesFound=false;
+        System.out.println("\n--- Duplicate Tag Report ---");
+        for(Map.Entry<String,Integer> entry:tagCounts.entrySet()){
+            if(entry.getValue()>1){
+                System.out.println("Tag "+entry.getKey()+" occurs "+entry.getValue()+" times.");
+                duplicatesFound=true;
+            }
+        }
+        if (!duplicatesFound){
+            System.out.println("No duplicate tags found.");
+        }
+    }
+    //------Helper Methods for Updates------
+    //Update habitats of a fish
+    private void updateHabitats(Fish fish){
+        List<String>habitatOptions=List.of("River", "Lake", "Swamp", "Mangrove", "Estuary", "Reef", "Spring", "Other");
+        List<String>habitats=new ArrayList<>();
+        while(true){
+            System.out.println("\nSelect habitats (comma-separated 1–8, current: "+String.join(", ",fish.getHabitats())+"):");
+            for(int i=0;i<habitatOptions.size();i++){
+                System.out.println((i+1)+". "+habitatOptions.get(i));
+            }
+            System.out.print("Enter your choice(s): ");
+            String input=scanner.nextLine().trim();
+            if(input.isEmpty()){
+                System.out.println("You must select at least one habitat.");
+                continue;
+            }
+            String[]choices=input.split("\\s*,\\s*");
+            boolean valid=true;
+            habitats.clear();
+            for(String choice:choices){
+                try{
+                    int num=Integer.parseInt(choice);
+                    if(num<1||num>8){
+                        System.out.println("Invalid choice: "+num+". Must be between 1 and 8.");
+                        valid=false;
+                        break;
+                    }
+                    if(num==8){//Custom habitat
+                        System.out.print("Enter your custom habitat name: ");
+                        String custom=scanner.nextLine().trim();
+                        if(custom.isEmpty()){
+                            System.out.println("Custom habitat cannot be empty.");
+                            valid=false;
+                            break;
+                        }
+                        habitats.add(custom);
+                    }else{
+                        String habitat=habitatOptions.get(num-1);
+                        if(!habitats.contains(habitat))habitats.add(habitat);
+                    }
+                } catch(NumberFormatException e){
+                    System.out.println("Invalid input: "+choice+". Numbers only (1–8).");
+                    valid=false;
+                    break;
+                }
+            }
+            if(valid&&!habitats.isEmpty()){
+                fish.setHabitats(habitats);//Update habitats
+                System.out.println("Habitats updated.");
+                break;
+            } else {
+                System.out.println("Please re-enter valid habitat selections.\n");
+            }
+        }
+    }
+    //Update conservation status
+    private void updateConservationStatus(Fish fish){
+        while(true){
+            System.out.println("\nSelect Conservation Status (current: "+fish.getConservationStatus()+"):");
+            System.out.println("1. Least Concern");
+            System.out.println("2. Near Threatened");
+            System.out.println("3. Vulnerable");
+            System.out.println("4. Endangered");
+            System.out.println("5. Critically Endangered");
+            System.out.print("Enter choice (1–5): ");
+            String input=scanner.nextLine();
+            switch(input){
+                case"1":fish.setConservationStatus("Least Concern");break;
+                case"2":fish.setConservationStatus("Near Threatened");break;
+                case"3":fish.setConservationStatus("Vulnerable");break;
+                case"4":fish.setConservationStatus("Endangered");break;
+                case"5":fish.setConservationStatus("Critically Endangered");break;
+                default: System.out.println("Invalid choice. Try again.");continue;
+            }
+            System.out.println("Conservation status updated.");
+            break;
+        }
+    }
+    //Update fish tag
+    private void updateTag(Fish fish){
+        while(true){
+            System.out.print("\nEnter new tag ("+fish.getTag()+", format 000-00-0000) (~ to cancel): ");
+            String newTag=scanner.nextLine();
+            if(newTag.equals("~"))return;
+            if(!newTag.matches("\\d{3}-\\d{2}-\\d{4}")){
+                System.out.println("Invalid format. Try again.");
+                continue;
+            }
+            boolean duplicate=fishList.stream()
+                    .anyMatch(f->f!=fish&&f.getTag().equals(newTag));
+            if(duplicate){
+                System.out.println("Warning: Another fish already has this tag. Updating anyway.");
+            }
+            fish.setTag(newTag);//Update tag
+            System.out.println("Tag updated.");
+            break;
+        }
+    }
+}
