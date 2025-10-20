@@ -1,0 +1,95 @@
+import java.util.List;
+/**
+ * Fish.java
+ * Represents a fish in the Florida Native Fish Database Management System (DMS).
+ * - Stores key information about a fish:common name,scientific name,average size,diet,habitats,conservation status,and tag.
+ * - Provides getters and setters for all fields.
+ * - Overrides toString to display fish information in a readable format.
+ */
+public class Fish{
+    private String commonName;//Common name of the fish.
+    private String scientificName;//Scientific (Latin) name of the fish.
+    private double averageSize;//Average size in inches.
+    private String diet;//Fish diet information.
+    private List<String> habitats;//List of habitats where the fish is found.
+    private String conservationStatus;//Conservation status (e.g., Endangered, Least Concern)
+    private String tag;// Tag for categorizing or searching fish.
+
+    /**
+     * Constructor: Initializes a new Fish object with all attributes.
+     * @param commonName          Common name of the fish
+     * @param scientificName      Scientific name of the fish
+     * @param averageSize         Average size in inches
+     * @param diet                Diet of the fish
+     * @param habitats            List of habitats
+     * @param conservationStatus  Conservation status
+     * @param tag                 Tag for classification
+     */
+    public Fish(String commonName,String scientificName,double averageSize,String diet,List<String>habitats,String conservationStatus,String tag){
+        this.commonName=commonName;
+        this.scientificName=scientificName;
+        this.averageSize=averageSize;
+        this.diet=diet;
+        this.habitats=habitats;
+        this.conservationStatus=conservationStatus;
+        this.tag=tag;
+    }
+
+    //Getters and Setters
+    public String getCommonName(){
+        return commonName;
+    }
+    public void setCommonName(String commonName){
+        this.commonName=commonName;
+    }
+    public String getScientificName(){
+        return scientificName;
+    }
+    public void setScientificName(String scientificName){
+        this.scientificName=scientificName;
+    }
+    public double getAverageSize(){
+        return averageSize;
+    }
+    public void setAverageSize(double averageSize){
+        this.averageSize=averageSize;
+    }
+    public String getDiet(){
+        return diet;
+    }
+    public void setDiet(String diet){
+        this.diet=diet;
+    }
+    public List<String>getHabitats(){
+        return habitats;
+    }
+    public void setHabitats(List<String>habitats){
+        this.habitats=habitats;
+    }
+    public String getConservationStatus(){
+        return conservationStatus;
+    }
+    public void setConservationStatus(String conservationStatus){
+        this.conservationStatus=conservationStatus;
+    }
+    public String getTag(){
+        return tag;
+    }
+    public void setTag(String tag){
+        this.tag=tag;
+    }
+    /**
+     * Returns a formatted string representation of the fish.
+     * - Includes all key attributes for display purposes.
+     */
+    @Override
+    public String toString(){
+        return "Common Name: "+commonName+
+                "\nScientific Name: "+scientificName+
+                "\nAverage Size: "+averageSize+" inches"+
+                "\nDiet: "+diet+
+                "\nHabitats: "+String.join(", ", habitats)+
+                "\nConservation Status: "+conservationStatus+
+                "\nTag: "+tag;
+    }
+}
