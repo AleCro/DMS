@@ -1,0 +1,182 @@
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Scanner;
+import java.util.ArrayList;
+
+/**
+ * AddFishFromFile.java
+ * Handles adding multiple fish to the Florida Native Fish Database from a text file.
+ * - Prompts user for file path.
+ * - Validates file existence and line formats.
+ * - Parses each line into fish attributes: common name, scientific name, average size with unit, diet, habitats, conservation status, tag.
+ * - Adds valid fish to the fish list and warns about duplicates.
+ * - Reports all errors found per line.
+ */
+public class AddFishFromFile{
+    private Scanner scanner;
+    private List<Fish>fishList;
+
+    public AddFishFromFile(List<Fish>fishList){
+        this.scanner=new Scanner(System.in);
+        this.fishList=fishList;
+    }
+    public void addFishFromFile(){
+        System.out.println("\n--- Add Fish From File ---");
+        while(true){
+            System.out.print("Enter file path or name (press ~ to go back, ? to see expected format): ");
+            String input=scanner.nextLine();
+            if(input.equals("~")){
+                System.out.println("Returning to main menu...");
+                return;
+            }
+            if(input.equals("?")){
+                showFileFormat();
+                continue;
+            }
+            File file=new File(input);
+            if(!file.exists()){
+                System.out.println("File not found, please try again.");
+                continue;
+            }
+            try{
+                processFile(file);
+            }catch(InvalidFileFormatException e){
+                System.out.println("File error: "+e.getMessage());
+                System.out.println("Please fix the file and try again.");
+            } catch(Exception e){
+                System.out.println("Unexpected error: "+e.getMessage());
+                System.out.println("Please try again.");
+            }
+            System.out.println("\nYou can add another file, or press ~ to go back to the main menu.");
+        }
+    }
+    private void showFileFormat(){
+        System.out.println("\nExpected file format per line:");
+        System.out.println("Common Name - Scientific Name - Average Size with unit - Diet - Habitats (comma-separated) - Conservation Status - Tag");
+        System.out.println("Example:");
+        System.out.println("Bass - Micropterus - 12 in - 3 crabs, algae - Swamp, Pond, River - Least Concern - 000-00-0001\n");
+        System.out.println("Rules:");
+        System.out.println("- Common Name: letters only");
+        System.out.println("- Scientific Name: letters only");
+        System.out.println("- Average Size: numeric value + unit (mm, cm, m, in, ft, yd)");
+        System.out.println("- Diet: letters only or optional leading number + letters, comma-separated (e.g., 'algae' or '3 crabs, 2 shell fish')");
+        System.out.println("- Habitats: comma-separated names");
+        System.out.println("- Conservation Status: one of 'Least Concern', 'Near Threatened', 'Vulnerable', 'Endangered', 'Critically Endangered'");
+        System.out.println("- Tag: format 000-00-0000\n");
+    }
+    private void processFile(File file)throws InvalidFileFormatException{
+        int addedCount=0;
+        try (Scanner fileScanner=new Scanner(file)){
+            int lineNumber=0;
+
+            while(fileScanner.hasNextLine()){
+                lineNumber++;
+                String line=fileScanner.nextLine().trim();
+                if(line.isEmpty())continue;
+
+                //Split into 7 fields max
+                String[] parts=line.split("\\s*-\\s*",7);
+                if(parts.length!=7){
+                    System.out.println("Line "+lineNumber+" invalid: does not have 7 fields -> "+line);
+                    continue;
+                }
+                String commonName=parts[0].trim();
+                String scientificName=parts[1].trim();
+                String averageSizeInput=parts[2].trim().toLowerCase();
+                String diet=parts[3].trim();
+                String habitatsInput=parts[4].trim();
+                String status=parts[5].trim();
+                String tag=parts[6].trim();
+
+                //Collect all errors
+                List<String>errors=new ArrayList<>();
+
+                //------Common & Scientific Name Validation------
+                if(!commonName.matches("[a-zA-Z ]+")){
+                    errors.add("Invalid common name: '"+commonName+"'");
+                }
+                if(!scientificName.matches("[a-zA-Z ]+")){
+                    errors.add("Invalid scientific name: '"+scientificName+"'");
+                }
+                //------Average Size Parsing------
+                double averageSize=-1;
+                String[]sizeParts=averageSizeInput.split("\\s+");
+                if(sizeParts.length!=2){
+                    errors.add("Average size must include number and unit, e.g., '12 in'");
+                }else{
+                    String numericPart=sizeParts[0].replaceAll("[^\\d.]","");
+                    String unit=sizeParts[1];
+                    List<String>allowedUnits=Arrays.asList("mm", "cm", "m", "in", "ft", "yd");
+                    if(!allowedUnits.contains(unit)){
+                        errors.add("Invalid unit: '"+unit+"' (allowed: mm, cm, m, in, ft, yd)");
+                    }
+                    try{
+                        averageSize=Double.parseDouble(numericPart);
+                        if(averageSize<=0){
+                            errors.add("Average size must be greater than 0");
+                        }
+                    }catch(NumberFormatException e){
+                        errors.add("Invalid numeric size: '"+numericPart+"'");
+                    }
+                }
+                //------Diet Validation------
+                String[]dietItems=diet.split("\\s*,\\s*");
+                boolean dietValid=true;
+                for(String item:dietItems){
+                    if(!item.matches("(\\d+\\s)?[a-zA-Z ]+")){
+                        dietValid=false;
+                        errors.add("Invalid diet item: '"+item+"' (e.g., 'algae' or '3 crabs, 2 shell fish')");
+                    }
+                }
+                diet=String.join(", ",dietItems);
+
+                //------Tag Validation------
+                if(!tag.matches("\\d{3}-\\d{2}-\\d{4}")){
+                    errors.add("Invalid tag: '"+tag+"' (format: 000-00-0000)");
+                }
+
+                //------Habitats Validation------
+                List<String>habitats=Arrays.asList(habitatsInput.split("\\s*,\\s*"));
+                if(habitats.isEmpty()){
+                    errors.add("Habitats cannot be empty");
+                }
+
+                //------Conservation Status Validation------
+                List<String>allowedStatus=Arrays.asList("Least Concern", "Near Threatened", "Vulnerable", "Endangered", "Critically Endangered");
+                if(!allowedStatus.contains(status)){
+                    errors.add("Invalid conservation status: '"+status+"'");
+                }
+
+                //------Duplicate Tag Check------
+                boolean duplicate=fishList.stream().anyMatch(f->f.getTag().equals(tag));
+                if(duplicate){
+                    System.out.println("Warning: a fish with tag "+tag+" already exists. Adding anyway.");
+                }
+
+                // Report errors or add fish
+                if(!errors.isEmpty()){
+                    System.out.println("Line "+lineNumber+" has errors:");
+                    for(String err:errors){
+                        System.out.println(" - "+err);
+                    }
+                    continue;
+                }
+                //------Create Fish------
+                Fish fish=new Fish(commonName, scientificName, averageSize, diet, habitats, status, tag);
+                fishList.add(fish);
+                System.out.println("Fish added successfully: "+commonName+" ("+tag+")");
+                addedCount++;
+            }
+            System.out.println(addedCount+" fish added from file: "+file.getName());
+        }catch(FileNotFoundException e){
+            throw new InvalidFileFormatException("File not found when reading.");
+        }
+    }
+    private static class InvalidFileFormatException extends Exception{
+        public InvalidFileFormatException(String message){
+            super(message);
+        }
+    }
+}
