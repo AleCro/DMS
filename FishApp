@@ -1,0 +1,27 @@
+/**
+ * Alejandro Coro Lopez
+ * CEN 3024 - Software Development 1
+ * OCtober 20, 2025.
+ * FishApp.java
+ * Main class for the Florida Native Fish Database Management System (DMS).
+ * - Creates a list to store fish.
+ * - Initializes the UI.
+ * - Starts the main menu.
+ */
+
+import java.util.ArrayList;
+import java.util.List;
+
+public class FishApp{
+    /**
+     * Program entry point.
+     * - Creates list of Fish objects.
+     * - Initializes UI with fish list.
+     * - Shows the main menu.
+     */
+    public static void main(String[]args){
+        List<Fish>fishList=new ArrayList<>();//Store fish objects.
+        UI ui=new UI(fishList);//Initialize UI with fish list.
+        ui.showMainMenu();//Start program menu.
+    }
+}
