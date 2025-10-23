@@ -2,21 +2,40 @@ import java.util.*;
 
 /**
  * FishManager.java
+ *
  * Manages the operations related to fish records in the Florida Native Fish Database.
  * Provides both interactive (CLI) and testable methods for performing CRUD operations
  * such as adding, reading, updating, and removing fish. Also includes analytical methods.
  */
 public class FishManager{
+    /** List containing all fish currently in the system. */
     private List<Fish> fishList;
+
+    /** Scanner for user input during interactive sessions. */
     private Scanner scanner;
 
+    /**
+     * Constructs a FishManager with the given list of Fish objects.
+     *
+     * @param fishList list of Fish objects managed by this instance
+     */
     public FishManager(List<Fish> fishList){
         this.fishList=fishList;
         this.scanner=new Scanner(System.in);
     }
 
+    /**
+     * Returns the list of all managed fish.
+     *
+     * @return the current list of Fish objects
+     */
     public List<Fish> getFishList(){return fishList;}
 
+    /**
+     * Calculates the average number of habitats per fish.
+     *
+     * @return the average number of habitats per fish, or 0.0 if the list is empty
+     */
     public double calculateAverageHabitatsPerFish(){
         if(fishList.isEmpty())return 0.0;
         int totalHabitats=0;
@@ -24,6 +43,11 @@ public class FishManager{
         return(double)totalHabitats/fishList.size();
     }
 
+    /**
+     * Calculates the average size of all fish in the list.
+     *
+     * @return the average fish size, or 0.0 if the list is empty
+     */
     public double calculateAverageSize(){
         if(fishList.isEmpty())return 0.0;
         double totalSize=0;
@@ -31,6 +55,13 @@ public class FishManager{
         return totalSize/fishList.size();
     }
 
+    /**
+     * Identifies the fish with the highest ecological diversity.
+     * Diversity is calculated as the product of the number of habitats
+     * and the number of diet items listed for each fish.
+     *
+     * @return a string describing the most diverse fish or a message if no data is available
+     */
     public String getTopDiversityFish(){
         if(fishList.isEmpty())return "No fish data available.";
         Fish topFish=null;
@@ -45,11 +76,23 @@ public class FishManager{
         return topFish!=null?topFish.getCommonName()+" (score: "+highestScore+")":"No fish data available.";
     }
 
+    /**
+     * Adds a new fish to the list.
+     *
+     * @param fish the Fish object to add
+     * @return true if successfully added, false if null
+     */
     public boolean addFish(Fish fish){
         if(fish==null)return false;
         return fishList.add(fish);
     }
 
+    /**
+     * Searches for a fish in the list by its tag.
+     *
+     * @param tag the tag to search for
+     * @return the Fish object if found, null otherwise
+     */
     public Fish findFishByTag(String tag){
         for(Fish f:fishList){
             if(f.getTag().equals(tag))return f;
@@ -57,6 +100,20 @@ public class FishManager{
         return null;
     }
 
+    /**
+     * Updates an existing fish identified by its tag.
+     * Only valid or non-null values are applied.
+     *
+     * @param tag the tag identifying the fish to update
+     * @param newCommonName new common name (letters only)
+     * @param newScientificName new scientific name (letters only)
+     * @param newAverageSize new average size (must be > 0)
+     * @param newDiet new diet description
+     * @param newHabitats new habitat list
+     * @param newStatus new conservation status
+     * @param newTag new tag in format 000-00-0000
+     * @return true if the fish was found and updated, false otherwise
+     */
     public boolean updateFishByTag(String tag,String newCommonName,String newScientificName,
                                    Double newAverageSize,String newDiet,List<String> newHabitats,
                                    String newStatus,String newTag){
@@ -75,10 +132,21 @@ public class FishManager{
         return false;
     }
 
+    /**
+     * Removes a fish from the list by tag.
+     *
+     * @param tag the tag of the fish to remove
+     * @return true if the fish was removed, false otherwise
+     */
     public boolean removeFishByTag(String tag){
         return fishList.removeIf(f->f.getTag().equals(tag));
     }
 
+    /**
+     * Finds duplicate tag numbers within the list.
+     *
+     * @return a map of duplicate tags with their occurrence counts
+     */
     public Map<String,Integer> getDuplicateTags(){
         Map<String,Integer> tagCounts=new HashMap<>();
         for(Fish f:fishList){
@@ -88,6 +156,10 @@ public class FishManager{
         return tagCounts;
     }
 
+    /**
+     * Displays the interactive management menu.
+     * Allows users to view, search, update, and remove fish records.
+     */
     public void showManageMenu(){
         while(true){
             System.out.println("\n--- Manage Fish Menu ---");
@@ -111,6 +183,9 @@ public class FishManager{
         }
     }
 
+    /**
+     * Displays all fish currently stored in the list.
+     */
     private void listAllFish(){
         if(fishList.isEmpty()){
             System.out.println("No fish added yet.");
@@ -123,6 +198,9 @@ public class FishManager{
         }
     }
 
+    /**
+     * Searches for a fish by its tag and displays the result.
+     */
     private void searchFishByTag(){
         System.out.print("\nEnter tag to search (~ to go back): ");
         String tag=scanner.nextLine();
@@ -132,6 +210,9 @@ public class FishManager{
         else System.out.println("Found:\n"+f);
     }
 
+    /**
+     * Allows the user to interactively update a fish’s name or diet.
+     */
     private void interactiveUpdateFish(){
         System.out.print("Enter tag to update (~ to cancel): ");
         String tag=scanner.nextLine();
@@ -151,6 +232,9 @@ public class FishManager{
         System.out.println("Fish updated successfully.");
     }
 
+    /**
+     * Allows the user to remove a fish record interactively.
+     */
     private void interactiveRemoveFish(){
         System.out.print("Enter tag to remove (~ to cancel): ");
         String tag=scanner.nextLine();
@@ -159,6 +243,9 @@ public class FishManager{
         System.out.println(removed?"Fish removed successfully.":"Fish not found.");
     }
 
+    /**
+     * Displays a report of duplicate tags, if any exist.
+     */
     private void checkDuplicateTagsCLI(){
         Map<String,Integer> dupes=getDuplicateTags();
         System.out.println("\n--- Duplicate Tag Report ---");
