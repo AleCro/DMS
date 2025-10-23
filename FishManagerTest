@@ -11,9 +11,6 @@
  * This suite aligns with the refactored FishManager implementation, which supports:
  * - Non-interactive, testable methods
  * - Safe updates and robust data integrity
- *
- * Author: Alejandro Coro Lopez
- * Date: October 2025
  */
 
 import org.junit.jupiter.api.BeforeEach;
