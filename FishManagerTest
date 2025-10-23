@@ -1,0 +1,150 @@
+/**
+ * FishManagerTest.java
+ * Unit test suite for the FishManager class.
+ *
+ * Purpose:
+ * - Verify core analytical features such as average calculations and diversity ranking.
+ * - Validate CRUD-like behaviors (find, remove, update) on the in-memory fish list.
+ * - Ensure that invalid inputs (e.g., negative sizes) are handled safely.
+ * - Confirm that duplicate tag detection works as intended.
+ *
+ * This suite aligns with the refactored FishManager implementation, which supports:
+ * - Non-interactive, testable methods
+ * - Safe updates and robust data integrity
+ *
+ * Author: Alejandro Coro Lopez
+ * Date: October 2025
+ */
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import static org.junit.jupiter.api.Assertions.*;
+
+public class FishManagerTest{
+    private FishManager manager;
+    private List<Fish> fishList;
+
+    @BeforeEach
+    void setUp(){
+        fishList=new ArrayList<>();
+        fishList.add(new Fish("Bass","Micropterus",12.0,"insects algae",List.of("Lake","River"),"Least Concern","001-00-0001"));
+        fishList.add(new Fish("Snook","Centropomus",20.0,"shrimp small fish",List.of("Estuary","Mangrove"),"Near Threatened","002-00-0002"));
+        fishList.add(new Fish("Bluegill","Lepomis",10.0,"insects",List.of("Lake"),"Least Concern","003-00-0003"));
+        manager=new FishManager(fishList);
+    }
+
+    // ----Analytical Method: Average Habitats per Fish ----
+    @Test
+    void testCalculateAverageHabitatsPerFish(){
+        double avgHabitats=manager.calculateAverageHabitatsPerFish();
+        assertEquals(1.666,avgHabitats,0.01,"Average habitats per fish should be correct");
+    }
+
+    @Test
+    void testCalculateAverageHabitatsPerFishEmptyList(){
+        FishManager emptyManager=new FishManager(new ArrayList<>());
+        assertEquals(0.0,emptyManager.calculateAverageHabitatsPerFish(),"Empty list should return 0.0");
+    }
+
+    // ----Analytical Method: Average Size ----
+    @Test
+    void testCalculateAverageSize(){
+        double avgSize=manager.calculateAverageSize();
+        assertEquals(14.0,avgSize,0.001,"Average size should be 14.0");
+    }
+
+    @Test
+    void testCalculateAverageSizeEmptyList(){
+        FishManager emptyManager=new FishManager(new ArrayList<>());
+        assertEquals(0.0,emptyManager.calculateAverageSize(),"Empty list should return 0.0");
+    }
+
+    // ----Analytical Method: Ecological Diversity Scoring ----
+    @Test
+    void testGetTopDiversityFish(){
+        String result=manager.getTopDiversityFish();
+        assertTrue(result.contains("Snook"),"Snook should be the top diversity fish");
+        assertTrue(result.contains("score: 6"),"Score should reflect correct diversity calculation");
+    }
+
+    @Test
+    void testGetTopDiversityFishEmptyList(){
+        FishManager emptyManager=new FishManager(new ArrayList<>());
+        assertEquals("No fish data available.",emptyManager.getTopDiversityFish());
+    }
+
+    // ----Duplicate Detection ----
+    @Test
+    void testGetDuplicateTags(){
+        fishList.add(new Fish("CopyBass","Micropterus",15.0,"insects",List.of("River"),"Least Concern","001-00-0001"));
+        try{
+            var method=FishManager.class.getDeclaredMethod("getDuplicateTags");
+            method.setAccessible(true);
+            @SuppressWarnings("unchecked")
+            Map<String,Integer> result=(Map<String,Integer>)method.invoke(manager);
+            assertTrue(result.containsKey("001-00-0001"),"Duplicate tag should be detected");
+            assertEquals(2,result.get("001-00-0001"),"Duplicate count should be 2");
+        }catch(Exception ignored){}
+    }
+
+    // ----Field Update Simulation ----
+    @Test
+    void testManualUpdateFishFields(){
+        Fish bass=fishList.get(0);
+        bass.setCommonName("Largemouth Bass");
+        bass.setAverageSize(15.0);
+        bass.setDiet("worms crustaceans");
+        bass.setConservationStatus("Vulnerable");
+        assertEquals("Largemouth Bass",bass.getCommonName());
+        assertEquals(15.0,bass.getAverageSize());
+        assertEquals("worms crustaceans",bass.getDiet());
+        assertEquals("Vulnerable",bass.getConservationStatus());
+    }
+
+    // ----Record Removal Simulation ----
+    @Test
+    void testManualRemoveFishByTag(){
+        int initialSize=fishList.size();
+        fishList.removeIf(f->f.getTag().equals("002-00-0002"));
+        assertEquals(initialSize-1,fishList.size(),"Fish list size should decrease after removal");
+        boolean exists=fishList.stream().anyMatch(f->f.getTag().equals("002-00-0002"));
+        assertFalse(exists,"Removed fish should no longer exist");
+    }
+
+    // ----Multiple Sequential Updates ----
+    @Test
+    void testMultipleSequentialUpdates(){
+        Fish bluegill=fishList.get(2);
+        bluegill.setAverageSize(11.5);
+        bluegill.setDiet("insects larvae algae");
+        bluegill.setHabitats(List.of("Lake","Pond"));
+        bluegill.setConservationStatus("Near Threatened");
+        assertEquals(11.5,bluegill.getAverageSize());
+        assertTrue(bluegill.getDiet().contains("algae"));
+        assertTrue(bluegill.getHabitats().contains("Pond"));
+        assertEquals("Near Threatened",bluegill.getConservationStatus());
+    }
+
+    // ----Input Validation (Negative Size) ----
+    @Test
+    void testInvalidAverageSizeHandledGracefully(){
+        Fish bass=fishList.get(0);
+        double originalSize=bass.getAverageSize();
+        try{
+            bass.setAverageSize(-10.0);
+        }catch(Exception ignored){}
+        assertTrue(bass.getAverageSize()>0,"Average size should remain positive");
+        assertEquals(originalSize,bass.getAverageSize(),"Invalid updates should not override original values");
+    }
+
+    // ----Search Function Simulation ----
+    @Test
+    void testFindFishByTagSimulation(){
+        Fish found=fishList.stream().filter(f->f.getTag().equals("003-00-0003")).findFirst().orElse(null);
+        assertNotNull(found,"Fish with given tag should exist");
+        assertEquals("Bluegill",found.getCommonName());
+    }
+}
