@@ -5,20 +5,37 @@ import java.util.List;
 
 /**
  * FishDAO.java
+ *
  * Provides data access operations for Fish objects.
  * Supports both mock mode (in-memory list) for testing
  * and JDBC mode for future database integration.
+ *
+ * All CRUD methods return boolean or Fish objects for
+ * easier verification and unit testing.
  */
 public class FishDAO{
+    /** In-memory mock storage (used when not connected to a database). */
     private final List<Fish> mockFishList=new ArrayList<>();
+
+    /** JDBC connection object for database operations. */
     private Connection connection=null;
+
+    /** Flag indicating whether the system is connected to the database. */
     private boolean useDatabase=false;
+
+    /** Database configuration details (modify as needed). */
     private static final String DB_URL="jdbc:mysql://localhost:3306/fishdb";
     private static final String DB_USER="root";
     private static final String DB_PASSWORD="password";
 
+    /** Default constructor for FishDAO. */
     public FishDAO(){}
 
+    /**
+     * Attempts to connect to the database.
+     *
+     * @return true if the connection was successful, false otherwise
+     */
     public boolean connect(){
         try{
             if(!useDatabase){
@@ -33,6 +50,11 @@ public class FishDAO{
         }
     }
 
+    /**
+     * Closes the current database connection.
+     *
+     * @return true if successfully disconnected, false otherwise
+     */
     public boolean disconnect(){
         if(useDatabase&&connection!=null){
             try{
@@ -47,6 +69,12 @@ public class FishDAO{
         return false;
     }
 
+    /**
+     * Adds a new Fish record.
+     *
+     * @param fish the Fish object to add
+     * @return true if successfully added, false otherwise
+     */
     public boolean addFish(Fish fish){
         if(fish==null)return false;
         if(useDatabase){
@@ -71,6 +99,11 @@ public class FishDAO{
         }
     }
 
+    /**
+     * Retrieves all Fish records from the database or mock list.
+     *
+     * @return a list of all Fish objects
+     */
     public List<Fish> getAllFish(){
         if(useDatabase){
             List<Fish> fishList=new ArrayList<>();
@@ -96,6 +129,12 @@ public class FishDAO{
         }
     }
 
+    /**
+     * Finds a Fish by its unique tag.
+     *
+     * @param tag the tag of the Fish
+     * @return the matching Fish object, or null if not found
+     */
     public Fish findFishByTag(String tag){
         if(tag==null||tag.isEmpty())return null;
         if(useDatabase){
@@ -122,6 +161,12 @@ public class FishDAO{
         }
     }
 
+    /**
+     * Updates an existing Fish record.
+     *
+     * @param updatedFish the Fish object with updated information
+     * @return true if updated successfully, false otherwise
+     */
     public boolean updateFish(Fish updatedFish){
         if(updatedFish==null)return false;
         if(useDatabase){
@@ -151,6 +196,12 @@ public class FishDAO{
         }
     }
 
+    /**
+     * Removes a Fish record by tag.
+     *
+     * @param tag the tag of the Fish to remove
+     * @return true if successfully removed, false otherwise
+     */
     public boolean removeFishByTag(String tag){
         if(tag==null||tag.isEmpty())return false;
         if(useDatabase){
@@ -168,6 +219,12 @@ public class FishDAO{
         }
     }
 
+    /**
+     * Clears all Fish records from the mock list or database.
+     * Used primarily for testing or resetting the dataset.
+     *
+     * @return true if cleared successfully, false otherwise
+     */
     public boolean clearAll(){
         if(useDatabase){
             try(Statement stmt=connection.createStatement()){
