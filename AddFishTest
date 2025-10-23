@@ -1,1 +1,170 @@
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import java.util.*;
+import java.util.Scanner;
+import static org.junit.jupiter.api.Assertions.*;
+
+/**
+ * AddFishTest.java
+ * Unit tests for the AddFish class.
+ * Purpose:
+ *   - Verify that new Fish objects can be added successfully
+ *   - Validate input handling and user entry logic
+ *   - Confirm that invalid data and duplicate tags are handled correctly
+ *   - Ensure user cancellation ("~") exits without crashing or adding data
+ *
+ * These tests use a mock Scanner to simulate user input instead of real console input.
+ * This approach makes the addFish() method fully testable without user interaction.
+ */
+public class AddFishTest {
+
+    private List<Fish> fishList;
+
+    /**
+     * Runs before each test.
+     * Creates a fresh, empty fish list to ensure independence between tests.
+     */
+    @BeforeEach
+    void setup() {
+        fishList=new ArrayList<>();
+    }
+
+    /**
+     * Test Case: Successfully adding a valid fish record.
+     * Scenario:
+     *   - Simulates the user entering all valid field values.
+     *   - Verifies that a new Fish object is created and stored correctly.
+     *
+     * Expected Result:
+     *   - fishList should contain exactly one Fish.
+     *   - All attributes should match the input data.
+     */
+    @Test
+    void testAddFishSuccess() {
+        //Simulate valid user input sequence for one fish record
+        String input=String.join("\n",
+                "Bass",//Common name
+                "Micropterus",//Scientific name
+                "12 in",//Average size with unit
+                "insects, algae",//Diet
+                "1,2",//Habitats (River, Lake)
+                "3",//Conservation status (Vulnerable)
+                "001-00-0001"//Tag
+        );
+        Scanner mockScanner=new Scanner(input);
+        AddFish addFish=new AddFish(mockScanner,fishList);
+        addFish.addFish();
+
+        //Verify that a new Fish was added correctly
+        assertEquals(1,fishList.size(),"One fish should be added to the list");
+        Fish f=fishList.get(0);
+        assertEquals("Bass",f.getCommonName());
+        assertEquals("Micropterus",f.getScientificName());
+        assertEquals(12.0,f.getAverageSize());
+        assertEquals("insects, algae",f.getDiet());
+        assertEquals(List.of("River","Lake"),f.getHabitats());
+        assertEquals("Vulnerable",f.getConservationStatus());
+        assertEquals("001-00-0001",f.getTag());
+    }
+
+    /**
+     * Test Case: Adding a fish with a duplicate tag.
+     * Scenario:
+     *   - The list already contains one fish with tag "123-45-6789".
+     *   - User enters a new fish with the same tag.
+     *   - System should warn the user, but still allow the addition.
+     *
+     * Expected Result:
+     *   - Two fish exist in the list (duplicate tag allowed but warned).
+     *   - Both are distinct objects.
+     */
+    @Test
+    void testAddFishDuplicateTagWarning() {
+        //Pre-load list with an existing fish
+        Fish existing=new Fish("Snook","Centropomus",15,"shrimp",
+                List.of("Reef"),"Least Concern","123-45-6789");
+        fishList.add(existing);
+
+        //Simulated input for a second fish using same tag
+        String input=String.join("\n",
+                "Bluegill",//Common name
+                "Lepomis",//Scientific name
+                "10 in",//Average size
+                "worms",//Diet
+                "2",//Habitat (Lake)
+                "1",//Status (Least Concern)
+                "123-45-6789"//Duplicate tag
+        );
+        Scanner mockScanner=new Scanner(input);
+        AddFish addFish=new AddFish(mockScanner,fishList);
+        addFish.addFish();
+
+        //The system should allow the duplicate but print a warning
+        assertEquals(2,fishList.size(),"Both fish should exist despite duplicate tag");
+        assertTrue(fishList.stream().anyMatch(f->f.getCommonName().equals("Bluegill")),
+                "Bluegill should be successfully added");
+    }
+
+    /**
+     * Test Case: Handling invalid inputs before valid ones.
+     * Scenario:
+     *   - Simulates the user entering invalid values for several fields first,
+     *     then entering valid values afterward.
+     *   - Ensures program loops correctly and does not crash.
+     *
+     * Expected Result:
+     *   - After retrying, a single valid Fish is created.
+     *   - The invalid attempts do not affect final data.
+     */
+    @Test
+    void testInvalidInputsThenValid() {
+        //Simulated sequence: invalid → valid for each field
+        String input=String.join("\n",
+                "123",//invalid common name
+                "Bass",//valid
+                "Micropterus",//scientific
+                "abc",//invalid average size
+                "12 in",//valid average size
+                "123",//invalid diet
+                "algae",//valid diet
+                "9",//invalid habitat
+                "1",//valid (River)
+                "6",//invalid conservation
+                "2",//valid (Near Threatened)
+                "BADTAG",//invalid tag
+                "111-22-3333"//valid tag
+        );
+        Scanner mockScanner=new Scanner(input);
+        AddFish addFish=new AddFish(mockScanner,fishList);
+        addFish.addFish();
+
+        //Verify that only one valid fish is stored after correction
+        assertEquals(1,fishList.size(),"Fish should be added after valid corrections");
+        Fish f=fishList.get(0);
+        assertEquals("Bass",f.getCommonName());
+        assertEquals("Micropterus",f.getScientificName());
+        assertEquals("algae",f.getDiet());
+        assertEquals("Near Threatened",f.getConservationStatus());
+        assertEquals("111-22-3333",f.getTag());
+    }
+
+    /**
+     * Test Case: User cancels fish entry using "~".
+     * Scenario:
+     *   - The user immediately enters "~" at the first prompt.
+     *   - The system should recognize this as a cancel signal.
+     *
+     * Expected Result:
+     *   - No fish is added to the list.
+     *   - Program should not crash or throw an exception.
+     */
+    @Test
+    void testCancelWithTilde() {
+        String input="~\n";//Simulate user entering "~"
+        Scanner mockScanner=new Scanner(input);
+        AddFish addFish=new AddFish(mockScanner,fishList);
+        addFish.addFish();
+        assertTrue(fishList.isEmpty(),"No fish should be added when user cancels with '~'");
+    }
+}
 
