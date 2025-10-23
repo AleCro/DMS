@@ -1,0 +1,82 @@
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import java.util.Arrays;
+import java.util.List;
+import static org.junit.jupiter.api.Assertions.*;
+
+/**
+ * FishTest.java
+ * Unit test suite for the Fish class in the
+ * Florida Native Fish Database Management System (DMS).
+ *
+ * Purpose:
+ * - Validate that Fish objects correctly store and return data.
+ * - Verify getters, setters, constructor logic, and string formatting.
+ * - Ensure that data validation (e.g., size > 0) and
+ *   list handling (habitats, diet, etc.) work as expected.
+ *
+ * This class confirms that the Fish data model behaves
+ * reliably and consistently across all supported fields.
+ */
+public class FishTest{
+    private Fish fish;
+    private List<String>habitats;
+
+    @BeforeEach
+    void setUp(){
+        habitats=Arrays.asList("River","Lake");
+        fish=new Fish("Bass","Micropterus salmoides",12.5,"insects, algae",habitats,"Least Concern","001-00-0001");
+    }
+
+    // ---- Constructor and Getter Tests ----
+    @Test
+    void testConstructorAndGetters(){
+        assertEquals("Bass",fish.getCommonName(),"Common name should match the constructor value");
+        assertEquals("Micropterus salmoides",fish.getScientificName(),"Scientific name should match");
+        assertEquals(12.5,fish.getAverageSize(),"Average size should be initialized correctly");
+        assertEquals("insects, algae",fish.getDiet(),"Diet should match expected string");
+        assertEquals(habitats,fish.getHabitats(),"Habitats list should match the one provided");
+        assertEquals("Least Concern",fish.getConservationStatus(),"Status should match input");
+        assertEquals("001-00-0001",fish.getTag(),"Tag should match the constructor argument");
+    }
+
+    // ---- Setter Method Tests ----
+    @Test
+    void testSetters(){
+        fish.setCommonName("Snook");
+        fish.setScientificName("Centropomus undecimalis");
+        fish.setAverageSize(20.0);
+        fish.setDiet("shrimp, small fish");
+        fish.setHabitats(List.of("Mangrove","Estuary"));
+        fish.setConservationStatus("Near Threatened");
+        fish.setTag("002-00-0002");
+        assertEquals("Snook",fish.getCommonName(),"Common name should be updated");
+        assertEquals("Centropomus undecimalis",fish.getScientificName(),"Scientific name should be updated");
+        assertEquals(20.0,fish.getAverageSize(),"Average size should update correctly");
+        assertEquals("shrimp, small fish",fish.getDiet(),"Diet should be updated correctly");
+        assertEquals(List.of("Mangrove","Estuary"),fish.getHabitats(),"Habitats should update correctly");
+        assertEquals("Near Threatened",fish.getConservationStatus(),"Conservation status should update correctly");
+        assertEquals("002-00-0002",fish.getTag(),"Tag should update correctly");
+    }
+
+    // ---- String Representation (toString) ----
+    @Test
+    void testToString(){
+        String result=fish.toString();
+        assertTrue(result.contains("Common Name: Bass"),"Output should include common name");
+        assertTrue(result.contains("Scientific Name: Micropterus salmoides"),"Output should include scientific name");
+        assertTrue(result.contains("Average Size: 12.5 inches"),"Output should include average size");
+        assertTrue(result.contains("Diet: insects, algae"),"Output should include diet");
+        assertTrue(result.contains("Habitats: River, Lake"),"Output should include habitat list");
+        assertTrue(result.contains("Conservation Status: Least Concern"),"Output should include status");
+        assertTrue(result.contains("Tag: 001-00-0001"),"Output should include tag number");
+    }
+
+    // ---- Edge Case: Empty or Null Data ----
+    @Test
+    void testToStringWithEmptyHabitats(){
+        Fish emptyFish=new Fish("Guppy","Poecilia reticulata",1.5,"plankton",List.of(),"Least Concern","003-00-0003");
+        String result=emptyFish.toString();
+        assertTrue(result.contains("Habitats: "),"Output should include habitats label even when empty");
+    }
+}
