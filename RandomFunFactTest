@@ -1,0 +1,121 @@
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import static org.junit.jupiter.api.Assertions.*;
+
+/**
+ * RandomFunFactTest.java
+ * Unit test suite for the RandomFunFact class.
+ *
+ * Purpose:
+ * - Verify that random educational facts about Florida fish
+ *   are generated, cycled, and reshuffled correctly.
+ * - Ensure that no duplicate facts appear within a single cycle.
+ * - Confirm proper integration with FishManager statistics
+ *   such as average habitats and diversity calculations.
+ * - Test robustness, safety, and proper state handling when
+ *   reinitialized or run multiple times.
+ *
+ * These tests confirm that the custom feature ("Random Fun Facts")
+ * works as expected per project requirements.
+ */
+public class RandomFunFactTest{
+    private FishManager manager;
+
+    @BeforeEach
+    void setUp(){
+        List<Fish> fishList=List.of(
+                new Fish("Bass","Micropterus",12.0,"insects algae",List.of("Lake","River"),"Least Concern","001-00-0001"),
+                new Fish("Snook","Centropomus",20.0,"shrimp small fish",List.of("Estuary","Mangrove"),"Near Threatened","002-00-0002")
+        );
+        manager=new FishManager(fishList);
+        RandomFunFact.initialize(manager);
+    }
+
+    // ----  Basic Functionality ----
+    @Test
+    void testGetRandomFactReturnsNonNullAndNotEmpty(){
+        String fact=RandomFunFact.getRandomFact();
+        assertNotNull(fact,"Random fun fact should not be null");
+        assertFalse(fact.isBlank(),"Random fun fact should not be blank or empty");
+    }
+
+    // ----  Uniqueness per Cycle ----
+    @Test
+    void testNoDuplicateFactsInSingleCycle(){
+        int totalFacts=RandomFunFact.getTotalFactCount();
+        Set<String> seenFacts=new HashSet<>();
+        for(int i=0;i<totalFacts;i++){
+            String fact=RandomFunFact.getRandomFact();
+            assertTrue(seenFacts.add(fact),"Duplicate fact detected during a single cycle: "+fact);
+        }
+    }
+
+    // ----  Reshuffling Behavior ----
+    @Test
+    void testReshufflesAfterAllFactsShown(){
+        int totalFacts=RandomFunFact.getTotalFactCount();
+        for(int i=0;i<totalFacts;i++){
+            assertNotNull(RandomFunFact.getRandomFact(),"Fact should exist during first cycle");
+        }
+        String reshuffledFact=RandomFunFact.getRandomFact();
+        assertNotNull(reshuffledFact,"Fact after reshuffle should not be null");
+        assertFalse(reshuffledFact.isBlank(),"Fact after reshuffle should not be blank");
+    }
+
+    // ----  Randomness Validation ----
+    @Test
+    void testRandomnessVariety(){
+        String firstFact=RandomFunFact.getRandomFact();
+        boolean variationFound=false;
+        for(int i=0;i<10;i++){
+            if(!RandomFunFact.getRandomFact().equals(firstFact)){
+                variationFound=true;
+                break;
+            }
+        }
+        assertTrue(variationFound,"Expected variation in random facts after multiple calls");
+    }
+
+    // ----  Integration: Average Habitats from FishManager ----
+    @Test
+    void testIntegrationWithFishManagerHabitats(){
+        double avg=manager.calculateAverageHabitatsPerFish();
+        assertEquals(2.0,avg,0.01,"Average habitats per fish should be 2.0");
+    }
+
+    // ----  Integration: Top Diversity Result ----
+    @Test
+    void testIntegrationWithFishManagerDiversity(){
+        String top=manager.getTopDiversityFish();
+        assertTrue(top.contains("Snook"),"Snook should be top diversity fish");
+        assertTrue(top.contains("score"),"Output should include diversity score");
+    }
+
+    // ----  Robustness Over Time ----
+    @Test
+    void testRobustnessAcrossManyCalls(){
+        for(int i=0;i<200;i++){
+            String fact=RandomFunFact.getRandomFact();
+            assertNotNull(fact,"Fact should not be null on iteration "+i);
+            assertFalse(fact.isBlank(),"Fact should not be blank");
+        }
+    }
+
+    // ----  Safe Reinitialization ----
+    @Test
+    void testMultipleInitializationCallsSafe(){
+        assertDoesNotThrow(()->{
+            RandomFunFact.initialize(manager);
+            RandomFunFact.initialize(manager);
+        },"Reinitializing RandomFunFact should not cause errors");
+    }
+
+    // ----  Edge Case: Null Manager Handling ----
+    @Test
+    void testInitializeWithNullManagerHandled(){
+        assertDoesNotThrow(()->RandomFunFact.initialize(null),"Initializing RandomFunFact with null manager should not crash");
+    }
+}
