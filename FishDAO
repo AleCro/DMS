@@ -1,1 +1,185 @@
+import java.sql.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
+/**
+ * FishDAO.java
+ * Provides data access operations for Fish objects.
+ * Supports both mock mode (in-memory list) for testing
+ * and JDBC mode for future database integration.
+ */
+public class FishDAO{
+    private final List<Fish> mockFishList=new ArrayList<>();
+    private Connection connection=null;
+    private boolean useDatabase=false;
+    private static final String DB_URL="jdbc:mysql://localhost:3306/fishdb";
+    private static final String DB_USER="root";
+    private static final String DB_PASSWORD="password";
+
+    public FishDAO(){}
+
+    public boolean connect(){
+        try{
+            if(!useDatabase){
+                connection=DriverManager.getConnection(DB_URL,DB_USER,DB_PASSWORD);
+                useDatabase=true;
+                System.out.println("Connected to database successfully.");
+            }
+            return true;
+        }catch(SQLException e){
+            System.out.println("Error connecting to database: "+e.getMessage());
+            return false;
+        }
+    }
+
+    public boolean disconnect(){
+        if(useDatabase&&connection!=null){
+            try{
+                connection.close();
+                useDatabase=false;
+                System.out.println("Database connection closed.");
+                return true;
+            }catch(SQLException e){
+                System.out.println("Error closing database: "+e.getMessage());
+            }
+        }
+        return false;
+    }
+
+    public boolean addFish(Fish fish){
+        if(fish==null)return false;
+        if(useDatabase){
+            String sql="INSERT INTO fish (common_name,scientific_name,average_size,diet,habitats,conservation_status,tag) VALUES (?,?,?,?,?,?,?)";
+            try(PreparedStatement stmt=connection.prepareStatement(sql)){
+                stmt.setString(1,fish.getCommonName());
+                stmt.setString(2,fish.getScientificName());
+                stmt.setDouble(3,fish.getAverageSize());
+                stmt.setString(4,fish.getDiet());
+                stmt.setString(5,String.join(",",fish.getHabitats()));
+                stmt.setString(6,fish.getConservationStatus());
+                stmt.setString(7,fish.getTag());
+                int rows=stmt.executeUpdate();
+                return rows>0;
+            }catch(SQLException e){
+                System.out.println("Error adding fish to database: "+e.getMessage());
+                return false;
+            }
+        }else{
+            mockFishList.add(fish);
+            return true;
+        }
+    }
+
+    public List<Fish> getAllFish(){
+        if(useDatabase){
+            List<Fish> fishList=new ArrayList<>();
+            String sql="SELECT * FROM fish";
+            try(Statement stmt=connection.createStatement();ResultSet rs=stmt.executeQuery(sql)){
+                while(rs.next()){
+                    Fish fish=new Fish(
+                            rs.getString("common_name"),
+                            rs.getString("scientific_name"),
+                            rs.getDouble("average_size"),
+                            rs.getString("diet"),
+                            Arrays.asList(rs.getString("habitats").split(",")),
+                            rs.getString("conservation_status"),
+                            rs.getString("tag"));
+                    fishList.add(fish);
+                }
+            }catch(SQLException e){
+                System.out.println("Error reading from database: "+e.getMessage());
+            }
+            return fishList;
+        }else{
+            return new ArrayList<>(mockFishList);
+        }
+    }
+
+    public Fish findFishByTag(String tag){
+        if(tag==null||tag.isEmpty())return null;
+        if(useDatabase){
+            String sql="SELECT * FROM fish WHERE tag=?";
+            try(PreparedStatement stmt=connection.prepareStatement(sql)){
+                stmt.setString(1,tag);
+                ResultSet rs=stmt.executeQuery();
+                if(rs.next()){
+                    return new Fish(
+                            rs.getString("common_name"),
+                            rs.getString("scientific_name"),
+                            rs.getDouble("average_size"),
+                            rs.getString("diet"),
+                            Arrays.asList(rs.getString("habitats").split(",")),
+                            rs.getString("conservation_status"),
+                            rs.getString("tag"));
+                }
+            }catch(SQLException e){
+                System.out.println("Error finding fish: "+e.getMessage());
+            }
+            return null;
+        }else{
+            return mockFishList.stream().filter(f->f.getTag().equals(tag)).findFirst().orElse(null);
+        }
+    }
+
+    public boolean updateFish(Fish updatedFish){
+        if(updatedFish==null)return false;
+        if(useDatabase){
+            String sql="UPDATE fish SET common_name=?,scientific_name=?,average_size=?,diet=?,habitats=?,conservation_status=? WHERE tag=?";
+            try(PreparedStatement stmt=connection.prepareStatement(sql)){
+                stmt.setString(1,updatedFish.getCommonName());
+                stmt.setString(2,updatedFish.getScientificName());
+                stmt.setDouble(3,updatedFish.getAverageSize());
+                stmt.setString(4,updatedFish.getDiet());
+                stmt.setString(5,String.join(",",updatedFish.getHabitats()));
+                stmt.setString(6,updatedFish.getConservationStatus());
+                stmt.setString(7,updatedFish.getTag());
+                int rows=stmt.executeUpdate();
+                return rows>0;
+            }catch(SQLException e){
+                System.out.println("Error updating fish: "+e.getMessage());
+                return false;
+            }
+        }else{
+            for(int i=0;i<mockFishList.size();i++){
+                if(mockFishList.get(i).getTag().equals(updatedFish.getTag())){
+                    mockFishList.set(i,updatedFish);
+                    return true;
+                }
+            }
+            return false;
+        }
+    }
+
+    public boolean removeFishByTag(String tag){
+        if(tag==null||tag.isEmpty())return false;
+        if(useDatabase){
+            String sql="DELETE FROM fish WHERE tag=?";
+            try(PreparedStatement stmt=connection.prepareStatement(sql)){
+                stmt.setString(1,tag);
+                int rows=stmt.executeUpdate();
+                return rows>0;
+            }catch(SQLException e){
+                System.out.println("Error deleting fish: "+e.getMessage());
+                return false;
+            }
+        }else{
+            return mockFishList.removeIf(f->f.getTag().equals(tag));
+        }
+    }
+
+    public boolean clearAll(){
+        if(useDatabase){
+            try(Statement stmt=connection.createStatement()){
+                stmt.executeUpdate("DELETE FROM fish");
+                return true;
+            }catch(SQLException e){
+                System.out.println("Error clearing database: "+e.getMessage());
+                return false;
+            }
+        }else{
+            mockFishList.clear();
+            return true;
+        }
+    }
+}
