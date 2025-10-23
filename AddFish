@@ -2,24 +2,44 @@ import java.util.*;
 
 /**
  * AddFish.java
+ *
  * Provides functionality to add new fish records into the database.
  * Handles both user input and validation, supporting dependency injection
  * for testing purposes. The class collects details such as name, size,
  * diet, habitats, and conservation status, and ensures valid data entry.
  */
 public class AddFish{
+    /** Scanner used for reading user input. */
     private final Scanner scanner;
+
+    /** Shared list that stores all Fish objects. */
     private final List<Fish> fishList;
 
+    /**
+     * Constructs an AddFish instance with the system input stream.
+     *
+     * @param fishList the main list of Fish objects
+     */
     public AddFish(List<Fish> fishList){
         this(new Scanner(System.in),fishList);
     }
 
+    /**
+     * Constructs an AddFish instance with a custom Scanner.
+     * Useful for dependency injection during testing.
+     *
+     * @param scanner input source
+     * @param fishList the list to store created Fish objects
+     */
     public AddFish(Scanner scanner,List<Fish> fishList){
         this.scanner=scanner;
         this.fishList=fishList;
     }
 
+    /**
+     * Starts the interactive process of adding a new fish.
+     * Prompts user for all required data, validates input, and saves the record.
+     */
     public void addFish(){
         Fish fish=promptFishDetails();
         if(fish!=null){
@@ -28,14 +48,23 @@ public class AddFish{
         }
     }
 
+    /**
+     * Collects and validates user input for all fish details.
+     * Returns a fully constructed Fish object or null if the user cancels.
+     *
+     * @return a valid Fish object, or null if operation is cancelled
+     */
     public Fish promptFishDetails(){
+        // Common Name input
         String commonName=readValidInput("Enter Fish Common Name (letters only) (press ~ to go back, ? for format info): ",
                 s->s.matches("[a-zA-Z ]+"),"Invalid input. Letters only.");
         if(commonName.equals("~"))return null;
 
+        // Scientific Name input
         String scientificName=readValidInput("Enter Scientific Name (letters only): ",
                 s->s.matches("[a-zA-Z ]+"),"Invalid input. Letters only.");
 
+        // Average Size input and validation
         double averageSize=0.0;
         List<String> validUnits=List.of("mm","cm","m","in","ft","yd");
         while(true){
@@ -55,10 +84,12 @@ public class AddFish{
             }
         }
 
+        // Diet input
         String diet=readValidInput("Enter Diet (letters only, optional leading number, comma-separated): ",
                 s->Arrays.stream(s.split("\\s*,\\s*")).allMatch(i->i.matches("(\\d+\\s)?[a-zA-Z ]+")),
                 "Invalid diet input. Example: 'algae' or '3 crabs, 2 shrimp'.");
 
+        // Habitat selection
         List<String> habitatOptions=List.of("River","Lake","Swamp","Mangrove","Estuary","Reef","Spring","Other");
         List<String> habitats=new ArrayList<>();
         while(habitats.isEmpty()){
@@ -68,6 +99,8 @@ public class AddFish{
             }
             System.out.print("Enter your choice(s): ");
             String[] choices=scanner.nextLine().trim().split("\\s*,\\s*");
+
+            // Process habitat choices
             for(String c:choices){
                 try{
                     int idx=Integer.parseInt(c);
@@ -85,6 +118,7 @@ public class AddFish{
             if(habitats.isEmpty())System.out.println("Invalid selection. Please choose numbers between 1 and 8.");
         }
 
+        // Conservation status selection
         String[] statuses={"Least Concern","Near Threatened","Vulnerable","Endangered","Critically Endangered"};
         String status="";
         while(status.isEmpty()){
@@ -102,16 +136,28 @@ public class AddFish{
             }
         }
 
+        // Tag input and duplicate check
         String tag=readValidInput("Enter fish tag (000-00-0000): ",
-                s->s.matches("\\d{3}-\\d{2}-\\d{4}"),"Invalid tag format. Example: 001-00-0001");
+                s->s.matches("\\d{3}-\\d{2}-\\d{4}"),
+                "Invalid tag format. Example: 001-00-0001");
 
         if(fishList.stream().anyMatch(f->f.getTag().equals(tag))){
             System.out.println("Warning: a fish with this tag already exists. Adding anyway.");
         }
 
+        // Return completed Fish object
         return new Fish(commonName,scientificName,averageSize,diet,habitats,status,tag);
     }
 
+    /**
+     * Helper method for repeatedly validating user input.
+     * Allows the user to cancel (~) or request format help (?).
+     *
+     * @param prompt displayed message
+     * @param validator validation rule
+     * @param errorMsg message to show for invalid input
+     * @return valid user input or "~" to cancel
+     */
     private String readValidInput(String prompt,java.util.function.Predicate<String> validator,String errorMsg){
         while(true){
             System.out.print(prompt);
@@ -126,6 +172,10 @@ public class AddFish{
         }
     }
 
+    /**
+     * Displays detailed instructions on how to properly input each field.
+     * Triggered when the user types '?' during data entry.
+     */
     private void showFormat(){
         System.out.println("""
                 Expected Input Format for Adding a Fish
@@ -133,20 +183,25 @@ public class AddFish{
                 Common Name:
                 - Letters and spaces only.
                 - Example: "Largemouth Bass"
+
                 Scientific Name:
                 - Letters and spaces only.
                 - Example: "Micropterus salmoides"
+
                 Average Size:
                 - Numeric value followed by a unit of measurement.
                 - Allowed units: mm, cm, m, in, ft, yd
                 - Example: "30 cm", "12 in", "0.5 m"
+
                 Diet:
                 - Comma-separated list of foods.
                 - Optional quantity before item.
                 - Example: "algae", "3 crabs, 2 shrimp"
+
                 Habitats:
                 - Choose from numbers 1–8.
                 - River, Lake, Swamp, Mangrove, Estuary, Reef, Spring, Other
+
                 Conservation Status:
                 - Select 1–5:
                     1. Least Concern
@@ -154,6 +209,7 @@ public class AddFish{
                     3. Vulnerable
                     4. Endangered
                     5. Critically Endangered
+
                 Tag:
                 - Unique identifier in format 000-00-0000
                 - Example: 001-00-0001
