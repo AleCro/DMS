@@ -1,7 +1,9 @@
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+
 import java.util.Arrays;
 import java.util.List;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
@@ -9,74 +11,134 @@ import static org.junit.jupiter.api.Assertions.*;
  * Unit test suite for the Fish class in the
  * Florida Native Fish Database Management System (DMS).
  *
- * Purpose:
- * - Validate that Fish objects correctly store and return data.
- * - Verify getters, setters, constructor logic, and string formatting.
- * - Ensure that data validation (e.g., size > 0) and
- *   list handling (habitats, diet, etc.) work as expected.
- *
- * This class confirms that the Fish data model behaves
- * reliably and consistently across all supported fields.
+ * Validates:
+ * - Constructor defaults and clamping (e.g., averageSize > 0).
+ * - Getters/setters for all fields.
+ * - Measurement unit validation and defaults (mm, cm, m, in, ft, yd).
+ * - String formatting from toString().
  */
-public class FishTest{
+public class FishTest {
     private Fish fish;
-    private List<String>habitats;
+    private List<String> habitats;
 
     @BeforeEach
-    void setUp(){
-        habitats=Arrays.asList("River","Lake");
-        fish=new Fish("Bass","Micropterus salmoides",12.5,"insects, algae",habitats,"Least Concern","001-00-0001");
+    void setUp() {
+        habitats = Arrays.asList("River", "Lake");
+        fish = new Fish(
+                "Bass",
+                "Micropterus salmoides",
+                12.5,
+                "insects, algae",
+                habitats,
+                "Least Concern",
+                "001-00-0001"
+        );
     }
 
     // ---- Constructor and Getter Tests ----
     @Test
-    void testConstructorAndGetters(){
-        assertEquals("Bass",fish.getCommonName(),"Common name should match the constructor value");
-        assertEquals("Micropterus salmoides",fish.getScientificName(),"Scientific name should match");
-        assertEquals(12.5,fish.getAverageSize(),"Average size should be initialized correctly");
-        assertEquals("insects, algae",fish.getDiet(),"Diet should match expected string");
-        assertEquals(habitats,fish.getHabitats(),"Habitats list should match the one provided");
-        assertEquals("Least Concern",fish.getConservationStatus(),"Status should match input");
-        assertEquals("001-00-0001",fish.getTag(),"Tag should match the constructor argument");
+    void testConstructorAndGetters() {
+        assertEquals("Bass", fish.getCommonName(), "Common name should match the constructor value");
+        assertEquals("Micropterus salmoides", fish.getScientificName(), "Scientific name should match");
+        assertEquals(12.5, fish.getAverageSize(), "Average size should be initialized correctly");
+        assertEquals("insects, algae", fish.getDiet(), "Diet should match expected string");
+        assertEquals(habitats, fish.getHabitats(), "Habitats list should match the one provided");
+        assertEquals("Least Concern", fish.getConservationStatus(), "Status should match input");
+        assertEquals("001-00-0001", fish.getTag(), "Tag should match the constructor argument");
+        assertEquals("in", fish.getMeasurementUnit(), "Default measurement unit should be 'in'");
+    }
+
+    @Test
+    void testConstructorClampsAverageSize() {
+        Fish tiny = new Fish(
+                "Goby",
+                "Gobiidae sp.",
+                -5.0, // invalid
+                "plankton",
+                List.of("Reef"),
+                "Least Concern",
+                "009-00-0009"
+        );
+        assertTrue(tiny.getAverageSize() > 0, "Constructor should clamp non-positive averageSize to a positive value");
+        assertEquals(1.0, tiny.getAverageSize(), 0.0001, "Per implementation, negative values default to 1.0");
     }
 
     // ---- Setter Method Tests ----
     @Test
-    void testSetters(){
+    void testSetters() {
         fish.setCommonName("Snook");
         fish.setScientificName("Centropomus undecimalis");
         fish.setAverageSize(20.0);
         fish.setDiet("shrimp, small fish");
-        fish.setHabitats(List.of("Mangrove","Estuary"));
+        fish.setHabitats(List.of("Mangrove", "Estuary"));
         fish.setConservationStatus("Near Threatened");
         fish.setTag("002-00-0002");
-        assertEquals("Snook",fish.getCommonName(),"Common name should be updated");
-        assertEquals("Centropomus undecimalis",fish.getScientificName(),"Scientific name should be updated");
-        assertEquals(20.0,fish.getAverageSize(),"Average size should update correctly");
-        assertEquals("shrimp, small fish",fish.getDiet(),"Diet should be updated correctly");
-        assertEquals(List.of("Mangrove","Estuary"),fish.getHabitats(),"Habitats should update correctly");
-        assertEquals("Near Threatened",fish.getConservationStatus(),"Conservation status should update correctly");
-        assertEquals("002-00-0002",fish.getTag(),"Tag should update correctly");
+
+        assertEquals("Snook", fish.getCommonName(), "Common name should be updated");
+        assertEquals("Centropomus undecimalis", fish.getScientificName(), "Scientific name should be updated");
+        assertEquals(20.0, fish.getAverageSize(), "Average size should update correctly");
+        assertEquals("shrimp, small fish", fish.getDiet(), "Diet should be updated correctly");
+        assertEquals(List.of("Mangrove", "Estuary"), fish.getHabitats(), "Habitats should update correctly");
+        assertEquals("Near Threatened", fish.getConservationStatus(), "Conservation status should update correctly");
+        assertEquals("002-00-0002", fish.getTag(), "Tag should update correctly");
+    }
+
+    @Test
+    void testSetAverageSizeRejectsNonPositive() {
+        double previous = fish.getAverageSize();
+        fish.setAverageSize(0.0);
+        assertEquals(previous, fish.getAverageSize(), "Non-positive size should be rejected and keep previous value");
+        fish.setAverageSize(-10.0);
+        assertEquals(previous, fish.getAverageSize(), "Negative size should be rejected and keep previous value");
+    }
+
+    // ---- Measurement Unit Validation ----
+    @Test
+    void testMeasurementUnitValidation() {
+        // default
+        assertEquals("in", fish.getMeasurementUnit(), "Default unit should be 'in'");
+
+        // valid units
+        for (String unit : List.of("mm", "cm", "m", "in", "ft", "yd")) {
+            fish.setMeasurementUnit(unit);
+            assertEquals(unit, fish.getMeasurementUnit(), "Unit should be accepted: " + unit);
+        }
+
+        // invalid unit -> default to 'in'
+        fish.setMeasurementUnit("lightyears");
+        assertEquals("in", fish.getMeasurementUnit(), "Invalid unit should revert to default 'in'");
+
+        // null -> default to 'in'
+        fish.setMeasurementUnit(null);
+        assertEquals("in", fish.getMeasurementUnit(), "Null unit should revert to default 'in'");
     }
 
     // ---- String Representation (toString) ----
     @Test
-    void testToString(){
-        String result=fish.toString();
-        assertTrue(result.contains("Common Name: Bass"),"Output should include common name");
-        assertTrue(result.contains("Scientific Name: Micropterus salmoides"),"Output should include scientific name");
-        assertTrue(result.contains("Average Size: 12.5 inches"),"Output should include average size");
-        assertTrue(result.contains("Diet: insects, algae"),"Output should include diet");
-        assertTrue(result.contains("Habitats: River, Lake"),"Output should include habitat list");
-        assertTrue(result.contains("Conservation Status: Least Concern"),"Output should include status");
-        assertTrue(result.contains("Tag: 001-00-0001"),"Output should include tag number");
+    void testToString() {
+        String result = fish.toString();
+        assertTrue(result.contains("Common Name: Bass"), "Output should include common name");
+        assertTrue(result.contains("Scientific Name: Micropterus salmoides"), "Output should include scientific name");
+        assertTrue(result.contains("Average Size: 12.5 in"), "Output should include average size with 'in'");
+        assertTrue(result.contains("Diet: insects, algae"), "Output should include diet");
+        assertTrue(result.contains("Habitats: River, Lake"), "Output should include habitat list");
+        assertTrue(result.contains("Conservation Status: Least Concern"), "Output should include status");
+        assertTrue(result.contains("Tag: 001-00-0001"), "Output should include tag number");
     }
 
     // ---- Edge Case: Empty or Null Data ----
     @Test
-    void testToStringWithEmptyHabitats(){
-        Fish emptyFish=new Fish("Guppy","Poecilia reticulata",1.5,"plankton",List.of(),"Least Concern","003-00-0003");
-        String result=emptyFish.toString();
-        assertTrue(result.contains("Habitats: "),"Output should include habitats label even when empty");
+    void testToStringWithEmptyHabitats() {
+        Fish emptyFish = new Fish(
+                "Guppy",
+                "Poecilia reticulata",
+                1.5,
+                "plankton",
+                List.of(),
+                "Least Concern",
+                "003-00-0003"
+        );
+        String result = emptyFish.toString();
+        assertTrue(result.contains("Habitats: "), "Output should include habitats label even when empty");
     }
 }
