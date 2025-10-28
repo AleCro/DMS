@@ -8,7 +8,7 @@ import java.util.*;
  * for testing purposes. The class collects details such as name, size,
  * diet, habitats, and conservation status, and ensures valid data entry.
  */
-public class AddFish{
+public class AddFish {
     /** Scanner used for reading user input. */
     private final Scanner scanner;
 
@@ -20,8 +20,8 @@ public class AddFish{
      *
      * @param fishList the main list of Fish objects
      */
-    public AddFish(List<Fish> fishList){
-        this(new Scanner(System.in),fishList);
+    public AddFish(List<Fish> fishList) {
+        this(new Scanner(System.in), fishList);
     }
 
     /**
@@ -31,20 +31,35 @@ public class AddFish{
      * @param scanner input source
      * @param fishList the list to store created Fish objects
      */
-    public AddFish(Scanner scanner,List<Fish> fishList){
-        this.scanner=scanner;
-        this.fishList=fishList;
+    public AddFish(Scanner scanner, List<Fish> fishList) {
+        this.scanner = scanner;
+        this.fishList = fishList;
     }
 
     /**
-     * Starts the interactive process of adding a new fish.
-     * Prompts user for all required data, validates input, and saves the record.
+     * Starts the interactive process of adding new fish records.
+     * After each addition, asks if the user wants to add another.
      */
-    public void addFish(){
-        Fish fish=promptFishDetails();
-        if(fish!=null){
+    public void addFish() {
+        boolean addingFish = true;
+
+        while (addingFish) {
+            Fish fish = promptFishDetails();
+            if (fish == null) {
+                // User entered "~" → cancel and go back
+                return;
+            }
+
             fishList.add(fish);
-            System.out.println("Fish added successfully.");
+            System.out.println("✅ Fish added successfully!");
+
+            // Ask if user wants to add another fish
+            System.out.print("\nWould you like to add another fish? (y/n): ");
+            String again = scanner.nextLine().trim();
+
+            if (!again.equalsIgnoreCase("y")) {
+                addingFish = false; // exit loop, return to main menu
+            }
         }
     }
 
@@ -54,99 +69,107 @@ public class AddFish{
      *
      * @return a valid Fish object, or null if operation is cancelled
      */
-    public Fish promptFishDetails(){
+    public Fish promptFishDetails() {
         // Common Name input
-        String commonName=readValidInput("Enter Fish Common Name (letters only) (press ~ to go back, ? for format info): ",
-                s->s.matches("[a-zA-Z ]+"),"Invalid input. Letters only.");
-        if(commonName.equals("~"))return null;
+        String commonName = readValidInput(
+                "Enter Fish Common Name (letters only) (press ~ to go back, ? for format info): ",
+                s -> s.matches("[a-zA-Z ]+"),
+                "Invalid input. Letters only.");
+        if (commonName.equals("~")) return null;
 
         // Scientific Name input
-        String scientificName=readValidInput("Enter Scientific Name (letters only): ",
-                s->s.matches("[a-zA-Z ]+"),"Invalid input. Letters only.");
+        String scientificName = readValidInput(
+                "Enter Scientific Name (letters only): ",
+                s -> s.matches("[a-zA-Z ]+"),
+                "Invalid input. Letters only.");
 
         // Average Size input and validation
-        double averageSize=0.0;
-        List<String> validUnits=List.of("mm","cm","m","in","ft","yd");
-        while(true){
+        double averageSize = 0.0;
+        List<String> validUnits = List.of("mm", "cm", "m", "in", "ft", "yd");
+        while (true) {
             System.out.print("Enter Average Size with unit (e.g., 12 in, 30 cm, 0.5 m): ");
-            String input=scanner.nextLine().trim().toLowerCase();
-            String[] parts=input.split("\\s+");
-            if(parts.length==2&&validUnits.contains(parts[1])){
-                try{
-                    averageSize=Double.parseDouble(parts[0]);
-                    if(averageSize>0)break;
+            String input = scanner.nextLine().trim().toLowerCase();
+            String[] parts = input.split("\\s+");
+            if (parts.length == 2 && validUnits.contains(parts[1])) {
+                try {
+                    averageSize = Double.parseDouble(parts[0]);
+                    if (averageSize > 0) break;
                     System.out.println("Size must be greater than 0.");
-                }catch(NumberFormatException e){
+                } catch (NumberFormatException e) {
                     System.out.println("Invalid numeric value.");
                 }
-            }else{
+            } else {
                 System.out.println("Invalid format. Must include number and valid unit (mm, cm, m, in, ft, yd).");
             }
         }
 
         // Diet input
-        String diet=readValidInput("Enter Diet (letters only, optional leading number, comma-separated): ",
-                s->Arrays.stream(s.split("\\s*,\\s*")).allMatch(i->i.matches("(\\d+\\s)?[a-zA-Z ]+")),
+        String diet = readValidInput(
+                "Enter Diet (letters only, optional leading number, comma-separated): ",
+                s -> Arrays.stream(s.split("\\s*,\\s*"))
+                        .allMatch(i -> i.matches("(\\d+\\s)?[a-zA-Z ]+")),
                 "Invalid diet input. Example: 'algae' or '3 crabs, 2 shrimp'.");
 
         // Habitat selection
-        List<String> habitatOptions=List.of("River","Lake","Swamp","Mangrove","Estuary","Reef","Spring","Other");
-        List<String> habitats=new ArrayList<>();
-        while(habitats.isEmpty()){
+        List<String> habitatOptions = List.of("River", "Lake", "Swamp", "Mangrove", "Estuary", "Reef", "Spring", "Other");
+        List<String> habitats = new ArrayList<>();
+        while (habitats.isEmpty()) {
             System.out.println("\nSelect habitats (comma-separated numbers 1–8):");
-            for(int i=0;i<habitatOptions.size();i++){
-                System.out.println((i+1)+". "+habitatOptions.get(i));
+            for (int i = 0; i < habitatOptions.size(); i++) {
+                System.out.println((i + 1) + ". " + habitatOptions.get(i));
             }
             System.out.print("Enter your choice(s): ");
-            String[] choices=scanner.nextLine().trim().split("\\s*,\\s*");
+            String[] choices = scanner.nextLine().trim().split("\\s*,\\s*");
 
-            // Process habitat choices
-            for(String c:choices){
-                try{
-                    int idx=Integer.parseInt(c);
-                    if(idx>=1&&idx<=8){
-                        if(idx==8){
+            for (String c : choices) {
+                try {
+                    int idx = Integer.parseInt(c);
+                    if (idx >= 1 && idx <= 8) {
+                        if (idx == 8) {
                             System.out.print("Enter custom habitat name: ");
-                            String custom=scanner.nextLine().trim();
-                            if(!custom.isEmpty())habitats.add(custom);
-                        }else{
-                            habitats.add(habitatOptions.get(idx-1));
+                            String custom = scanner.nextLine().trim();
+                            if (!custom.isEmpty()) habitats.add(custom);
+                        } else {
+                            habitats.add(habitatOptions.get(idx - 1));
                         }
                     }
-                }catch(NumberFormatException ignored){}
+                } catch (NumberFormatException ignored) {
+                }
             }
-            if(habitats.isEmpty())System.out.println("Invalid selection. Please choose numbers between 1 and 8.");
+            if (habitats.isEmpty())
+                System.out.println("Invalid selection. Please choose numbers between 1 and 8.");
         }
 
         // Conservation status selection
-        String[] statuses={"Least Concern","Near Threatened","Vulnerable","Endangered","Critically Endangered"};
-        String status="";
-        while(status.isEmpty()){
+        String[] statuses = {"Least Concern", "Near Threatened", "Vulnerable", "Endangered", "Critically Endangered"};
+        String status = "";
+        while (status.isEmpty()) {
             System.out.println("\nSelect Conservation Status:");
-            for(int i=0;i<statuses.length;i++){
-                System.out.println((i+1)+". "+statuses[i]);
+            for (int i = 0; i < statuses.length; i++) {
+                System.out.println((i + 1) + ". " + statuses[i]);
             }
             System.out.print("Enter choice (1–5): ");
-            try{
-                int c=Integer.parseInt(scanner.nextLine());
-                if(c>=1&&c<=5)status=statuses[c-1];
+            try {
+                int c = Integer.parseInt(scanner.nextLine());
+                if (c >= 1 && c <= 5) status = statuses[c - 1];
                 else System.out.println("Invalid choice. Choose 1–5.");
-            }catch(NumberFormatException e){
+            } catch (NumberFormatException e) {
                 System.out.println("Invalid input. Enter a number 1–5.");
             }
         }
 
         // Tag input and duplicate check
-        String tag=readValidInput("Enter fish tag (000-00-0000): ",
-                s->s.matches("\\d{3}-\\d{2}-\\d{4}"),
+        String tag = readValidInput(
+                "Enter fish tag (000-00-0000): ",
+                s -> s.matches("\\d{3}-\\d{2}-\\d{4}"),
                 "Invalid tag format. Example: 001-00-0001");
 
-        if(fishList.stream().anyMatch(f->f.getTag().equals(tag))){
+        if (fishList.stream().anyMatch(f -> f.getTag().equals(tag))) {
             System.out.println("Warning: a fish with this tag already exists. Adding anyway.");
         }
 
         // Return completed Fish object
-        return new Fish(commonName,scientificName,averageSize,diet,habitats,status,tag);
+        return new Fish(commonName, scientificName, averageSize, diet, habitats, status, tag);
     }
 
     /**
@@ -158,16 +181,18 @@ public class AddFish{
      * @param errorMsg message to show for invalid input
      * @return valid user input or "~" to cancel
      */
-    private String readValidInput(String prompt,java.util.function.Predicate<String> validator,String errorMsg){
-        while(true){
+    private String readValidInput(String prompt,
+                                  java.util.function.Predicate<String> validator,
+                                  String errorMsg) {
+        while (true) {
             System.out.print(prompt);
-            String input=scanner.nextLine().trim();
-            if(input.equals("~"))return "~";
-            if(input.equals("?")){
+            String input = scanner.nextLine().trim();
+            if (input.equals("~")) return "~";
+            if (input.equals("?")) {
                 showFormat();
                 continue;
             }
-            if(validator.test(input))return input;
+            if (validator.test(input)) return input;
             System.out.println(errorMsg);
         }
     }
@@ -176,7 +201,7 @@ public class AddFish{
      * Displays detailed instructions on how to properly input each field.
      * Triggered when the user types '?' during data entry.
      */
-    private void showFormat(){
+    private void showFormat() {
         System.out.println("""
                 Expected Input Format for Adding a Fish
                 ----------------------------------------------------
