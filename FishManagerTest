@@ -1,147 +1,160 @@
 /**
  * FishManagerTest.java
- * Unit test suite for the FishManager class.
+ *
+ * Unit tests for the FishManager class.
  *
  * Purpose:
- * - Verify core analytical features such as average calculations and diversity ranking.
- * - Validate CRUD-like behaviors (find, remove, update) on the in-memory fish list.
- * - Ensure that invalid inputs (e.g., negative sizes) are handled safely.
- * - Confirm that duplicate tag detection works as intended.
- *
- * This suite aligns with the refactored FishManager implementation, which supports:
- * - Non-interactive, testable methods
- * - Safe updates and robust data integrity
+ * - Validate core analytical features (average, diversity).
+ * - Verify CRUD-like behaviors (add, find, update, remove).
+ * - Ensure data integrity when updating or deleting fish.
+ * - Confirm duplicate tag detection works properly.
  */
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
 
-public class FishManagerTest{
+public class FishManagerTest {
     private FishManager manager;
     private List<Fish> fishList;
 
     @BeforeEach
-    void setUp(){
-        fishList=new ArrayList<>();
-        fishList.add(new Fish("Bass","Micropterus",12.0,"insects algae",List.of("Lake","River"),"Least Concern","001-00-0001"));
-        fishList.add(new Fish("Snook","Centropomus",20.0,"shrimp small fish",List.of("Estuary","Mangrove"),"Near Threatened","002-00-0002"));
-        fishList.add(new Fish("Bluegill","Lepomis",10.0,"insects",List.of("Lake"),"Least Concern","003-00-0003"));
-        manager=new FishManager(fishList);
+    void setUp() {
+        fishList = new ArrayList<>();
+        fishList.add(new Fish("Bass", "Micropterus", 12.0, "insects algae", List.of("Lake", "River"), "Least Concern", "001-00-0001"));
+        fishList.add(new Fish("Snook", "Centropomus", 20.0, "shrimp small fish", List.of("Estuary", "Mangrove"), "Near Threatened", "002-00-0002"));
+        fishList.add(new Fish("Bluegill", "Lepomis", 10.0, "insects", List.of("Lake"), "Least Concern", "003-00-0003"));
+        manager = new FishManager(fishList);
     }
 
-    // ----Analytical Method: Average Habitats per Fish ----
+    // ---- Analytical Tests ----
     @Test
-    void testCalculateAverageHabitatsPerFish(){
-        double avgHabitats=manager.calculateAverageHabitatsPerFish();
-        assertEquals(1.666,avgHabitats,0.01,"Average habitats per fish should be correct");
-    }
-
-    @Test
-    void testCalculateAverageHabitatsPerFishEmptyList(){
-        FishManager emptyManager=new FishManager(new ArrayList<>());
-        assertEquals(0.0,emptyManager.calculateAverageHabitatsPerFish(),"Empty list should return 0.0");
-    }
-
-    // ----Analytical Method: Average Size ----
-    @Test
-    void testCalculateAverageSize(){
-        double avgSize=manager.calculateAverageSize();
-        assertEquals(14.0,avgSize,0.001,"Average size should be 14.0");
+    void testCalculateAverageHabitatsPerFish() {
+        double avgHabitats = manager.calculateAverageHabitatsPerFish();
+        assertEquals(1.67, avgHabitats, 0.01, "Average habitats per fish should be correct");
     }
 
     @Test
-    void testCalculateAverageSizeEmptyList(){
-        FishManager emptyManager=new FishManager(new ArrayList<>());
-        assertEquals(0.0,emptyManager.calculateAverageSize(),"Empty list should return 0.0");
-    }
-
-    // ----Analytical Method: Ecological Diversity Scoring ----
-    @Test
-    void testGetTopDiversityFish(){
-        String result=manager.getTopDiversityFish();
-        assertTrue(result.contains("Snook"),"Snook should be the top diversity fish");
-        assertTrue(result.contains("score: 6"),"Score should reflect correct diversity calculation");
+    void testCalculateAverageSize() {
+        double avgSize = manager.calculateAverageSize();
+        assertEquals(14.0, avgSize, 0.001, "Average size should be correct");
     }
 
     @Test
-    void testGetTopDiversityFishEmptyList(){
-        FishManager emptyManager=new FishManager(new ArrayList<>());
-        assertEquals("No fish data available.",emptyManager.getTopDiversityFish());
+    void testGetTopDiversityFish() {
+        String top = manager.getTopDiversityFish();
+        assertTrue(top.contains("Snook"), "Snook should have the top diversity score");
+        assertTrue(top.contains("score: 6"), "Score calculation should match expected");
     }
 
-    // ----Duplicate Detection ----
+    // ---- Add & Find ----
     @Test
-    void testGetDuplicateTags(){
-        fishList.add(new Fish("CopyBass","Micropterus",15.0,"insects",List.of("River"),"Least Concern","001-00-0001"));
-        try{
-            var method=FishManager.class.getDeclaredMethod("getDuplicateTags");
-            method.setAccessible(true);
-            @SuppressWarnings("unchecked")
-            Map<String,Integer> result=(Map<String,Integer>)method.invoke(manager);
-            assertTrue(result.containsKey("001-00-0001"),"Duplicate tag should be detected");
-            assertEquals(2,result.get("001-00-0001"),"Duplicate count should be 2");
-        }catch(Exception ignored){}
+    void testAddFish() {
+        Fish newFish = new Fish("Trout", "Oncorhynchus", 18.0, "insects larvae", List.of("River", "Lake"), "Vulnerable", "004-00-0004");
+        boolean added = manager.addFish(newFish);
+        assertTrue(added, "Fish should be successfully added");
+        assertEquals(4, manager.getFishList().size(), "List size should increase by 1");
     }
 
-    // ----Field Update Simulation ----
     @Test
-    void testManualUpdateFishFields(){
-        Fish bass=fishList.get(0);
-        bass.setCommonName("Largemouth Bass");
-        bass.setAverageSize(15.0);
-        bass.setDiet("worms crustaceans");
-        bass.setConservationStatus("Vulnerable");
-        assertEquals("Largemouth Bass",bass.getCommonName());
-        assertEquals(15.0,bass.getAverageSize());
-        assertEquals("worms crustaceans",bass.getDiet());
-        assertEquals("Vulnerable",bass.getConservationStatus());
+    void testFindFishByTagFound() {
+        Fish found = manager.findFishByTag("002-00-0002");
+        assertNotNull(found, "Fish should be found by tag");
+        assertEquals("Snook", found.getCommonName());
     }
 
-    // ----Record Removal Simulation ----
     @Test
-    void testManualRemoveFishByTag(){
-        int initialSize=fishList.size();
-        fishList.removeIf(f->f.getTag().equals("002-00-0002"));
-        assertEquals(initialSize-1,fishList.size(),"Fish list size should decrease after removal");
-        boolean exists=fishList.stream().anyMatch(f->f.getTag().equals("002-00-0002"));
-        assertFalse(exists,"Removed fish should no longer exist");
+    void testFindFishByTagNotFound() {
+        Fish found = manager.findFishByTag("999-99-9999");
+        assertNull(found, "Nonexistent tag should return null");
     }
 
-    // ----Multiple Sequential Updates ----
+    // ---- Update Tests ----
     @Test
-    void testMultipleSequentialUpdates(){
-        Fish bluegill=fishList.get(2);
-        bluegill.setAverageSize(11.5);
-        bluegill.setDiet("insects larvae algae");
-        bluegill.setHabitats(List.of("Lake","Pond"));
-        bluegill.setConservationStatus("Near Threatened");
-        assertEquals(11.5,bluegill.getAverageSize());
-        assertTrue(bluegill.getDiet().contains("algae"));
-        assertTrue(bluegill.getHabitats().contains("Pond"));
-        assertEquals("Near Threatened",bluegill.getConservationStatus());
+    void testUpdateFishByTag_ValidChanges() {
+        boolean updated = manager.updateFishByTag(
+                "001-00-0001",
+                "Largemouth Bass",
+                "Micropterus salmoides",
+                15.5,
+                "worms crustaceans",
+                List.of("Lake", "Swamp"),
+                "Vulnerable",
+                "001-00-0011"
+        );
+        assertTrue(updated, "Fish should be updated successfully");
+
+        Fish updatedFish = manager.findFishByTag("001-00-0011");
+        assertNotNull(updatedFish, "Updated tag should exist");
+        assertEquals("Largemouth Bass", updatedFish.getCommonName());
+        assertEquals("Micropterus salmoides", updatedFish.getScientificName());
+        assertEquals(15.5, updatedFish.getAverageSize());
+        assertEquals("Vulnerable", updatedFish.getConservationStatus());
+        assertTrue(updatedFish.getHabitats().contains("Swamp"));
     }
 
-    // ----Input Validation (Negative Size) ----
     @Test
-    void testInvalidAverageSizeHandledGracefully(){
-        Fish bass=fishList.get(0);
-        double originalSize=bass.getAverageSize();
-        try{
-            bass.setAverageSize(-10.0);
-        }catch(Exception ignored){}
-        assertTrue(bass.getAverageSize()>0,"Average size should remain positive");
-        assertEquals(originalSize,bass.getAverageSize(),"Invalid updates should not override original values");
+    void testUpdateFishByTag_InvalidDataIgnored() {
+        boolean updated = manager.updateFishByTag(
+                "002-00-0002",
+                "Snook123",   // Invalid (contains digits)
+                null,
+                -10.0,        // Invalid (negative size)
+                "",           // Invalid (empty diet)
+                null,
+                "",
+                "badtag"      // Invalid format
+        );
+        assertTrue(updated, "Update should still return true (found fish)");
+        Fish snook = manager.findFishByTag("002-00-0002");
+        assertEquals("Snook", snook.getCommonName(), "Invalid name should be ignored");
+        assertEquals(20.0, snook.getAverageSize(), "Negative size should be ignored");
+        assertEquals("shrimp small fish", snook.getDiet(), "Empty diet should be ignored");
     }
 
-    // ----Search Function Simulation ----
     @Test
-    void testFindFishByTagSimulation(){
-        Fish found=fishList.stream().filter(f->f.getTag().equals("003-00-0003")).findFirst().orElse(null);
-        assertNotNull(found,"Fish with given tag should exist");
-        assertEquals("Bluegill",found.getCommonName());
+    void testUpdateFishByTag_NotFound() {
+        boolean updated = manager.updateFishByTag("999-99-9999", "FakeFish", null, 5.0, null, null, null, null);
+        assertFalse(updated, "Update should fail for non-existent tag");
+    }
+
+    // ---- Remove Tests ----
+    @Test
+    void testRemoveFishByTag() {
+        boolean removed = manager.removeFishByTag("003-00-0003");
+        assertTrue(removed, "Fish should be removed");
+        assertEquals(2, manager.getFishList().size(), "List size should decrease");
+        assertNull(manager.findFishByTag("003-00-0003"), "Removed fish should no longer be found");
+    }
+
+    @Test
+    void testRemoveFishByTag_NotFound() {
+        boolean removed = manager.removeFishByTag("999-99-9999");
+        assertFalse(removed, "No fish should be removed for invalid tag");
+    }
+
+    // ---- Duplicate Tag Detection ----
+    @Test
+    void testGetDuplicateTags() {
+        fishList.add(new Fish("CopyBass", "Micropterus", 15.0, "insects", List.of("River"), "Least Concern", "001-00-0001"));
+        Map<String, Integer> duplicates = manager.getDuplicateTags();
+        assertTrue(duplicates.containsKey("001-00-0001"), "Duplicate tag should be detected");
+        assertEquals(2, duplicates.get("001-00-0001"));
+    }
+
+    @Test
+    void testGetDuplicateTagsNone() {
+        Map<String, Integer> duplicates = manager.getDuplicateTags();
+        assertTrue(duplicates.isEmpty(), "No duplicates should be found");
+    }
+
+    // ---- Analytical Edge Cases ----
+    @Test
+    void testCalculateAverageWithEmptyList() {
+        FishManager empty = new FishManager(new ArrayList<>());
+        assertEquals(0.0, empty.calculateAverageHabitatsPerFish(), "Empty list should return 0 for habitats");
+        assertEquals(0.0, empty.calculateAverageSize(), "Empty list should return 0 for size");
+        assertEquals("No fish data available.", empty.getTopDiversityFish());
     }
 }
