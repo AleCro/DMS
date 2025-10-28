@@ -1,0 +1,820 @@
+import javafx.animation.FadeTransition;
+import javafx.application.Platform;
+import javafx.beans.property.SimpleBooleanProperty;
+import javafx.beans.property.SimpleStringProperty;
+import javafx.collections.FXCollections;
+import javafx.collections.ListChangeListener;
+import javafx.collections.ObservableList;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
+import javafx.scene.control.*;
+import javafx.scene.control.cell.CheckBoxTableCell;
+import javafx.scene.layout.*;
+import javafx.scene.text.Font;
+import javafx.scene.text.FontWeight;
+import javafx.util.Duration;
+
+import java.util.*;
+import java.util.stream.Collectors;
+
+/**
+ * This class builds and manages the "Manage Fish" tab for the
+ * Florida Native Fish Database Management System (DMS).
+ *
+ * Features:
+ *  - Full fish table view with selection, search, and bulk operations.
+ *  - Edit (single/bulk), delete (with undo), and duplicate checks.
+ *  - Expandable table area with smooth animation.
+ *
+ * Design Goal:
+ *  Create a  structured, “data-console” interface — professional,
+ *  consistent, and visually stable under the NatureTheme palette.
+ */
+@SuppressWarnings("unchecked")
+public class ManageFishLogicGUI {
+
+    /** Underlying fish dataset reference (shared with FishManager).*/
+    private final List<Fish>fishList;
+
+    /** Handles fish-related calculations and metrics.*/
+    private final FishManager fishManager;
+
+    /** Table data model used for display and selection.*/
+    private final ObservableList<FishRow>tableData = FXCollections.observableArrayList();
+
+    private TableView<FishRow> fishTable;
+    private VBox rootLayout;
+
+    /**
+     * Constructor
+     * @param fishList   Reference to the shared list of fish
+     * @param fishManager Manager handling fish data logic
+     */
+    public ManageFishLogicGUI(List<Fish> fishList, FishManager fishManager) {
+        this.fishList = fishList;
+        this.fishManager = fishManager;
+    }
+
+    //---- TAB CONSTRUCTION ----
+    /**
+     * Builds the "Manage Fish" tab and initializes
+     * all UI components including the table and controls.
+     * @return The configured Tab instance
+     */
+    public Tab buildTab() {
+        Tab tab = new Tab("Manage Fish");
+        tab.setClosable(false);
+
+        rootLayout = new VBox(12);
+        rootLayout.setPadding(new Insets(16));
+        NatureTheme.applyBackground(rootLayout);
+
+        Label title = new Label("Florida Native Fish Database — Management Console");
+        title.setFont(Font.font("Segoe UI", FontWeight.BOLD, 18));
+        NatureTheme.styleTitle(title);
+
+        //---- Toolbar setup ----
+        HBox topBar = new HBox(10);
+        topBar.setAlignment(Pos.CENTER_LEFT);
+        NatureTheme.styleToolbar(topBar);
+
+        HBox rightGroup = new HBox(8);
+        rightGroup.setAlignment(Pos.CENTER_RIGHT);
+
+        //Search field
+        TextField tagField = new TextField();
+        tagField.setPromptText("Tag: 000-00-0000");
+        tagField.setPrefColumnCount(16);
+        tagField.setTooltip(new Tooltip("Search by exact Tag"));
+
+        //Toolbar buttons
+        Button searchBtn = new Button("Search");
+        Button checkBtn = new Button("Check Selected");
+        Button editBtn = new Button("Edit / Bulk Edit");
+        Button deleteBtn = new Button("Delete");
+        Button refreshBtn = new Button("Refresh");
+        Button dupBtn = new Button("Duplicate Check");
+        Button toggleSelectBtn = new Button("Select All");
+
+        //Tooltips
+        searchBtn.setTooltip(new Tooltip("Search fish by Tag"));
+        checkBtn.setTooltip(new Tooltip("Show selected fish summary"));
+        editBtn.setTooltip(new Tooltip("Edit one or multiple fish"));
+        deleteBtn.setTooltip(new Tooltip("Delete selected fish (with Undo)"));
+        refreshBtn.setTooltip(new Tooltip("Reload the full dataset"));
+        dupBtn.setTooltip(new Tooltip("Find duplicate/missing tags"));
+        toggleSelectBtn.setTooltip(new Tooltip("Select or Deselect all rows"));
+
+        //Styling by function
+        NatureTheme.styleSecondary(searchBtn);
+        NatureTheme.styleSecondary(checkBtn);
+        NatureTheme.styleSecondary(editBtn);
+        NatureTheme.stylePrimary(deleteBtn);
+        NatureTheme.styleSecondary(refreshBtn);
+        NatureTheme.styleSecondary(dupBtn);
+        NatureTheme.styleSecondary(toggleSelectBtn);
+
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+
+        topBar.getChildren().addAll(
+                new Label("Tag:"), tagField,
+                searchBtn, checkBtn, editBtn, deleteBtn, refreshBtn, dupBtn,
+                spacer, rightGroup
+        );
+        rightGroup.getChildren().add(toggleSelectBtn);
+
+//---- BUTTON ACTION HANDLERS -----
+/**
+ * Handles the "Search" button click.
+ * Searches for a fish by its tag and highlights it in the table.
+ * If not found, displays a friendly message.
+ */
+        searchBtn.setOnAction(e -> {
+            String tag = tagField.getText().trim();
+            if (tag.isEmpty()) {
+                showAlert("Search", "Please enter a tag to search.");
+                return;
+            }
+            Optional<FishRow> found = tableData.stream()
+                    .filter(r -> r.getTag().equalsIgnoreCase(tag))
+                    .findFirst();
+            if (found.isPresent()) {
+                fishTable.getSelectionModel().select(found.get());
+                fishTable.scrollTo(found.get());
+                showAlert("Search Result", "Found fish with tag: " + tag);
+            } else {
+                showAlert("Search", "No fish found with tag: " + tag);
+            }
+        });
+
+/**
+ * Handles the "Check Selected" button click.
+ * Displays a list of all currently selected fish in a summary alert.
+ */
+        checkBtn.setOnAction(e -> {
+            var selected = tableData.stream().filter(FishRow::isSelected).toList();
+
+            if (selected.isEmpty()) {
+                showAlert("Check Selected", "No fish selected.");
+                return;
+            }
+            StringBuilder summary = new StringBuilder("Selected Fish:\n\n");
+            for (FishRow row : selected) {
+                summary.append("- ")
+                        .append(row.commonNameProperty().get())
+                        .append(" (Tag: ").append(row.getTag()).append(")\n");
+            }
+
+            showAlert("Selected Summary", summary.toString());
+        });
+
+/**
+ * Handles the "Edit / Bulk Edit" button click.
+ * Opens an edit dialog for a single selection, or bulk edit for multiple.
+ */
+        editBtn.setOnAction(e -> {
+            var selected = tableData.stream().filter(FishRow::isSelected).toList();
+
+            if (selected.isEmpty()) {
+                showAlert("Edit", "No fish selected.");
+                return;
+            }
+            if (selected.size() == 1) {
+                editSingleFish(selected.get(0)); // Opens single record editor
+            } else {
+                bulkEditSelectedFish(selected);  // Opens group edit dialog
+            }
+        });
+
+/**
+ * Handles the "Delete" button click.
+ * Deletes all currently selected fish and enables temporary Undo.
+ */
+        deleteBtn.setOnAction(e -> deleteSelected(toggleSelectBtn));
+/**
+ * Handles the "Refresh" button click.
+ * Reloads the table from the shared fish list to ensure UI consistency.
+ */
+        refreshBtn.setOnAction(e -> refresh());
+/**
+ * Handles the "Duplicate Check" button click.
+ * Scans for repeated or missing tags and reports findings.
+ */
+        dupBtn.setOnAction(e -> checkDuplicatesAndMissing());
+
+/**
+ * Handles the "Select All / Deselect All" button toggle.
+ * Updates all row selections accordingly and refreshes the button label.
+ */
+        toggleSelectBtn.setOnAction(e -> {
+            boolean selectAll = toggleSelectBtn.getText().equals("Select All");
+            for (FishRow row : tableData)
+                row.selectedProperty().set(selectAll);
+            updateToggleButtonState(toggleSelectBtn);
+        });
+
+        // -------------------------------------------------
+        // TABLE SETUP
+        // -------------------------------------------------
+        fishTable = new TableView<>(tableData);
+        fishTable.setEditable(true);
+        fishTable.getSelectionModel().setSelectionMode(SelectionMode.MULTIPLE);
+        NatureTheme.styleTable(fishTable);
+
+        // Table columns
+        TableColumn<FishRow, Boolean> selectCol = new TableColumn<>("Select");
+        selectCol.setMinWidth(72);
+        selectCol.setCellValueFactory(c -> c.getValue().selectedProperty());
+        selectCol.setCellFactory(CheckBoxTableCell.forTableColumn(selectCol));
+        selectCol.setEditable(true);
+
+        TableColumn<FishRow, String> nameCol = new TableColumn<>("Common Name");
+        nameCol.setCellValueFactory(c -> c.getValue().commonNameProperty());
+
+        TableColumn<FishRow, String> sciCol = new TableColumn<>("Scientific Name");
+        sciCol.setCellValueFactory(c -> c.getValue().scientificNameProperty());
+
+        TableColumn<FishRow, String> sizeCol = new TableColumn<>("Size (unit)");
+        sizeCol.setCellValueFactory(c -> c.getValue().sizeProperty());
+
+        TableColumn<FishRow, String> dietCol = new TableColumn<>("Diet");
+        dietCol.setCellValueFactory(c -> c.getValue().dietProperty());
+
+        TableColumn<FishRow, String> habitatCol = new TableColumn<>("Habitats");
+        habitatCol.setCellValueFactory(c -> c.getValue().habitatProperty());
+
+        TableColumn<FishRow, String> statusCol = new TableColumn<>("Status");
+        statusCol.setCellValueFactory(c -> c.getValue().statusProperty());
+
+        TableColumn<FishRow, String> tagCol = new TableColumn<>("Tag");
+        tagCol.setCellValueFactory(c -> c.getValue().tagProperty());
+
+        // Add columns in logical order
+        fishTable.getColumns().addAll(
+                selectCol, nameCol, sciCol, sizeCol, dietCol, habitatCol, statusCol, tagCol
+        );
+        VBox tableCard = new VBox(fishTable);
+        NatureTheme.styleCard(tableCard);
+        tableCard.setPadding(new Insets(8));
+
+        //---- TABLE EXPAND/COLLAPSE CONTROL ----
+        Button expandBtn = new Button("Expand ↓");
+        NatureTheme.styleSecondary(expandBtn);
+        expandBtn.setMaxWidth(Double.MAX_VALUE);
+        expandBtn.setAlignment(Pos.CENTER);
+
+        final boolean[] expanded = {false};
+        expandBtn.setOnAction(e -> {
+            if (!expanded[0]) {
+                animateHeight(fishTable, 1100);
+                expandBtn.setText("Collapse ↑");
+                expanded[0] = true;
+            } else {
+                animateHeight(fishTable, 400);
+                expandBtn.setText("Expand ↓");
+                expanded[0] = false;
+            }
+        });
+
+        //---- ROW INTERACTION LOGIC----
+        fishTable.setRowFactory(tv -> {
+            TableRow<FishRow> row = new TableRow<>();
+            row.setOnMouseClicked(event -> {
+                if (row.isEmpty()) return;
+                FishRow data = row.getItem();
+                int rowIndex = row.getIndex();
+                var selectionModel = fishTable.getSelectionModel();
+                Integer anchorIndex = (Integer) fishTable.getProperties().get("anchorIndex");
+
+                //Double-click toggles a single row selection
+                if (event.getClickCount() == 2) {
+                    boolean newVal = !data.isSelected();
+                    data.selectedProperty().set(newVal);
+                    if (newVal) selectionModel.select(rowIndex);
+                    else selectionModel.clearSelection(rowIndex);
+                    fishTable.getProperties().put("anchorIndex", rowIndex);
+                    updateToggleButtonState(toggleSelectBtn);
+                    return;
+                }
+
+                //Shift + Click selects range
+                if (event.isShiftDown() && anchorIndex != null) {
+                    int start = Math.min(anchorIndex, rowIndex);
+                    int end = Math.max(anchorIndex, rowIndex);
+                    selectionModel.clearSelection();
+                    for (int i = start; i <= end; i++) {
+                        FishRow r = fishTable.getItems().get(i);
+                        r.selectedProperty().set(true);
+                        selectionModel.select(i);
+                    }
+                    updateToggleButtonState(toggleSelectBtn);
+                    return;
+                }
+
+                //Ctrl/Cmd toggles single rows independently
+                if(event.isControlDown() || event.isMetaDown()){
+                    boolean newVal = !data.isSelected();
+                    data.selectedProperty().set(newVal);
+                    if (newVal) selectionModel.select(rowIndex);
+                    else selectionModel.clearSelection(rowIndex);
+                    fishTable.getProperties().put("anchorIndex", rowIndex);
+                    updateToggleButtonState(toggleSelectBtn);
+                    return;
+                }
+
+                //Default click toggles the clicked row only
+                boolean newVal = !data.isSelected();
+                data.selectedProperty().set(newVal);
+                selectionModel.clearSelection();
+                if (newVal) selectionModel.select(rowIndex);
+                fishTable.getProperties().put("anchorIndex", rowIndex);
+                updateToggleButtonState(toggleSelectBtn);
+            });
+            return row;
+        });
+
+        //SPACEBAR TOGGLE SUPPORT (Keyboard accessibility)
+        fishTable.setOnKeyPressed(event -> {
+            if (event.getCode() == javafx.scene.input.KeyCode.SPACE) {
+                var selectionModel = fishTable.getSelectionModel();
+                ObservableList<FishRow> selectedRows = selectionModel.getSelectedItems();
+
+                if (!selectedRows.isEmpty()) {
+                    boolean allSelected = selectedRows.stream().allMatch(FishRow::isSelected);
+                    boolean newVal = !allSelected;
+                    for (FishRow row : selectedRows) {
+                        row.selectedProperty().set(newVal);
+                    }
+                } else {
+                    FishRow focused = fishTable.getFocusModel().getFocusedItem();
+                    if (focused != null) focused.selectedProperty().set(!focused.isSelected());
+                }
+
+                updateToggleButtonState(toggleSelectBtn);
+                pulseButton(toggleSelectBtn);
+                event.consume(); // prevent spacebar scrolling
+            }
+        });
+
+        //Load table data initially
+        refresh();
+        tableData.addListener((ListChangeListener<FishRow>) c -> updateToggleButtonState(toggleSelectBtn));
+
+        //Add layout components
+        rootLayout.getChildren().addAll(title, topBar, tableCard, expandBtn);
+        tab.setContent(rootLayout);
+        return tab;
+    }
+    //---- CORE ACTIONS----
+    /**
+     * Reloads the table contents from the shared fish list.
+     * Ensures synchronization between manager and GUI.
+     */
+    public void refresh() {
+        tableData.clear();
+        fishList.forEach(f -> tableData.add(new FishRow(f)));
+    }
+    /**
+     * Deletes all currently selected fish records with a confirmation dialog.
+     * Supports undo functionality for 10 seconds after deletion.
+     * @param toggleSelectBtn Button used to reset state text (Select/Deselect All)
+     */
+    private void deleteSelected(Button toggleSelectBtn) {
+        var selected = tableData.stream().filter(FishRow::isSelected).toList();
+        if (selected.isEmpty()) {
+            showAlert("Delete", "No fish selected for deletion.");
+            return;
+        }
+        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
+        confirm.setTitle("Confirm Deletion");
+        confirm.setHeaderText("Delete selected records?");
+        confirm.setContentText("This will remove " + selected.size() + " record(s). Undo will be available.");
+        NatureTheme.styleAlert(confirm);
+
+        Optional<ButtonType> res = confirm.showAndWait();
+        if (res.isEmpty() || res.get() != ButtonType.OK) return;
+
+        //Backup deleted records for undo
+        List<Fish> backup = selected.stream()
+                .map(r -> fishList.stream()
+                        .filter(f -> f.getTag() != null && f.getTag().equals(r.getTag()))
+                        .findFirst().orElse(null))
+                .filter(Objects::nonNull)
+                .toList();
+
+        //Remove from list and refresh table
+        selected.forEach(r -> fishList.removeIf(f -> f.getTag() != null && f.getTag().equals(r.getTag())));
+        refresh();
+        updateToggleButtonState(toggleSelectBtn);
+
+        //Display undo button dynamically
+        Button undoBtn = new Button("Undo Delete (" + backup.size() + ")");
+        NatureTheme.styleSecondary(undoBtn);
+        rootLayout.getChildren().add(1, undoBtn);
+
+        undoBtn.setOnAction(ev -> {
+            fishList.addAll(backup);
+            refresh();
+            rootLayout.getChildren().remove(undoBtn);
+            showAlert("Undo Complete", "Restored " + backup.size() + " record(s).");
+        });
+
+        //Auto-hide undo after timeout
+        new Thread(() -> {
+            try { Thread.sleep(10000); Platform.runLater(() -> rootLayout.getChildren().remove(undoBtn)); }
+            catch (InterruptedException ignored) {}
+        }).start();
+
+        showAlert("Deleted", "Removed " + backup.size() + " record(s). Undo available for 10 seconds.");
+    }
+
+    /**
+     * Opens a detailed edit dialog for a single fish record.
+     * Allows editing of name, size, unit, diet, habitats, and conservation status.
+     */
+    private void editSingleFish(FishRow row) {
+        Fish target = fishList.stream()
+                .filter(f -> f.getTag() != null && f.getTag().equals(row.getTag()))
+                .findFirst().orElse(null);
+        if (target == null) {
+            showAlert("Edit", "Selected fish not found.");
+            return;
+        }
+
+        Dialog<Fish> dialog = new Dialog<>();
+        dialog.setTitle("Edit Fish — " + target.getTag());
+        DialogPane dp = dialog.getDialogPane();
+        dp.setPrefWidth(460);
+        dp.setStyle("-fx-background-color: #F1F8E9;");
+        safeHeaderStyle(dp);
+
+        GridPane grid = new GridPane();
+        grid.setHgap(10);
+        grid.setVgap(10);
+        grid.setPadding(new Insets(15));
+
+        // Editable fields for single record
+        TextField nameField = new TextField(target.getCommonName());
+        TextField sciField = new TextField(target.getScientificName());
+        TextField sizeField = new TextField(String.valueOf(target.getAverageSize()));
+        ComboBox<String> unitBox = new ComboBox<>(FXCollections.observableArrayList("mm", "cm", "m", "in", "ft", "yd"));
+        unitBox.setValue(target.getMeasurementUnit());
+        TextField dietField = new TextField(target.getDiet());
+        TextField habitatField = new TextField(
+                target.getHabitats() != null ? String.join(", ", target.getHabitats()) : ""
+        );
+
+        ComboBox<String> statusBox = new ComboBox<>(FXCollections.observableArrayList(
+                "Least Concern", "Near Threatened", "Vulnerable",
+                "Endangered", "Critically Endangered", "Extinct in the Wild", "Extinct"
+        ));
+        statusBox.setEditable(true);
+        statusBox.setValue(target.getConservationStatus() != null ? target.getConservationStatus() : "Least Concern");
+
+        grid.add(new Label("Common Name:"), 0, 0); grid.add(nameField, 1, 0);
+        grid.add(new Label("Scientific Name:"), 0, 1); grid.add(sciField, 1, 1);
+        grid.add(new Label("Size:"), 0, 2); grid.add(sizeField, 1, 2); grid.add(unitBox, 2, 2);
+        grid.add(new Label("Diet:"), 0, 3); grid.add(dietField, 1, 3);
+        grid.add(new Label("Habitats (comma-separated):"), 0, 4); grid.add(habitatField, 1, 4);
+        grid.add(new Label("Status:"), 0, 5); grid.add(statusBox, 1, 5);
+
+        dp.setContent(grid);
+        ButtonType saveBtn = new ButtonType("Save", ButtonBar.ButtonData.OK_DONE);
+        dp.getButtonTypes().addAll(saveBtn, ButtonType.CANCEL);
+
+        dialog.setResultConverter(btn -> {
+            if (btn == saveBtn) {
+                try {
+                    target.setCommonName(nameField.getText());
+                    target.setScientificName(sciField.getText());
+                    target.setAverageSize(Double.parseDouble(sizeField.getText()));
+                    target.setMeasurementUnit(unitBox.getValue());
+                    target.setDiet(dietField.getText());
+                    if (!habitatField.getText().isBlank())
+                        target.setHabitats(List.of(habitatField.getText().split("\\s*,\\s*")));
+                    target.setConservationStatus(statusBox.getValue());
+                    refresh();
+                    return target;
+                } catch (NumberFormatException nfe) {
+                    showAlert("Invalid Input", "Size must be a number.");
+                }
+            }
+            return null;
+        });
+
+        dialog.showAndWait();
+    }
+
+    /**
+     * Opens a bulk edit dialog for multiple selected records.
+     * Applies the same changes to all selected fish at once.
+     * Supports undo for 10 seconds.
+     * @param selected List of rows currently selected in the table
+     */
+    private void bulkEditSelectedFish(List<FishRow> selected) {
+        Map<String, FishSnapshot> before = new HashMap<>();
+        for (FishRow r : selected) {
+            Fish f = fishList.stream()
+                    .filter(x -> x.getTag() != null && x.getTag().equals(r.getTag()))
+                    .findFirst().orElse(null);
+            if (f != null) before.put(f.getTag(), FishSnapshot.of(f));
+        }
+
+        Dialog<Void> dialog = new Dialog<>();
+        dialog.setTitle("Bulk Edit — " + selected.size() + " record(s)");
+        DialogPane dp = dialog.getDialogPane();
+        dp.setPrefWidth(520);
+        dp.setStyle("-fx-background-color: #F1F8E9;");
+        safeHeaderStyle(dp);
+
+        GridPane grid = new GridPane();
+        grid.setPadding(new Insets(15));
+        grid.setHgap(10);
+        grid.setVgap(10);
+
+        TextField nameField = new TextField();
+        TextField sciField = new TextField();
+        TextField sizeField = new TextField();
+        ComboBox<String> unitBox = new ComboBox<>(FXCollections.observableArrayList("mm", "cm", "m", "in", "ft", "yd"));
+        unitBox.setPromptText("keep");
+        TextField dietField = new TextField();
+        TextField habitatField = new TextField();
+
+        ComboBox<String> statusBox = new ComboBox<>(FXCollections.observableArrayList(
+                "Least Concern", "Near Threatened", "Vulnerable",
+                "Endangered", "Critically Endangered", "Extinct in the Wild", "Extinct"
+        ));
+        statusBox.setPromptText("keep");
+        statusBox.setEditable(true);
+
+        grid.add(new Label("Common Name:"), 0, 0); grid.add(nameField, 1, 0);
+        grid.add(new Label("Scientific Name:"), 0, 1); grid.add(sciField, 1, 1);
+        grid.add(new Label("Size:"), 0, 2); grid.add(sizeField, 1, 2); grid.add(unitBox, 2, 2);
+        grid.add(new Label("Diet:"), 0, 3); grid.add(dietField, 1, 3);
+        grid.add(new Label("Habitats (comma-separated):"), 0, 4); grid.add(habitatField, 1, 4);
+        grid.add(new Label("Status:"), 0, 5); grid.add(statusBox, 1, 5);
+
+        dp.setContent(grid);
+        ButtonType applyBtn = new ButtonType("Apply to All", ButtonBar.ButtonData.OK_DONE);
+        dp.getButtonTypes().addAll(applyBtn, ButtonType.CANCEL);
+
+        dialog.setResultConverter(btn -> {
+            if (btn == applyBtn) {
+                Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
+                confirm.setTitle("Confirm Bulk Update");
+                confirm.setHeaderText("Apply changes to " + selected.size() + " record(s)?");
+                confirm.setContentText("This will overwrite provided fields for all selected fish.");
+                NatureTheme.styleAlert(confirm);
+
+                confirm.showAndWait().ifPresent(r -> {
+                    if (r == ButtonType.OK) {
+                        for (FishRow row : selected) {
+                            Fish target = fishList.stream()
+                                    .filter(f -> f.getTag() != null && f.getTag().equals(row.getTag()))
+                                    .findFirst().orElse(null);
+                            if (target == null) continue;
+
+                            if (!nameField.getText().isBlank()) target.setCommonName(nameField.getText());
+                            if (!sciField.getText().isBlank()) target.setScientificName(sciField.getText());
+                            if (!sizeField.getText().isBlank()) {
+                                try { target.setAverageSize(Double.parseDouble(sizeField.getText())); }
+                                catch (NumberFormatException ignored) {}
+                            }
+                            if (unitBox.getValue() != null) target.setMeasurementUnit(unitBox.getValue());
+                            if (!dietField.getText().isBlank()) target.setDiet(dietField.getText());
+                            if (!habitatField.getText().isBlank())
+                                target.setHabitats(List.of(habitatField.getText().split("\\s*,\\s*")));
+                            if (statusBox.getValue() != null && !statusBox.getValue().isBlank())
+                                target.setConservationStatus(statusBox.getValue());
+                        }
+
+                        refresh();
+                        showAlert("Updated", "Applied changes to " + selected.size() + " record(s).");
+                        // ---- Undo Support for Bulk Edit ----
+                        Button undoBtn = new Button("Undo Bulk Update (" + selected.size() + ")");
+                        NatureTheme.styleSecondary(undoBtn);
+                        rootLayout.getChildren().add(1, undoBtn);
+
+                        undoBtn.setOnAction(ev-> {
+                            for (Map.Entry<String, FishSnapshot> entry : before.entrySet()) {
+                                String tag = entry.getKey();
+                                FishSnapshot snap = entry.getValue();
+                                Fish target = fishList.stream()
+                                        .filter(f -> f.getTag() != null && f.getTag().equals(tag))
+                                        .findFirst()
+                                        .orElse(null);
+                                if (target != null) snap.applyTo(target);
+                            }
+                            refresh();
+                            rootLayout.getChildren().remove(undoBtn);
+                            showAlert("Undo Complete", "Restored previous values for " + before.size() + " record(s).");
+                        });
+
+                        //Remove undo button automatically after timeout
+                        new Thread(() -> {
+                            try {
+                                Thread.sleep(10000);
+                                Platform.runLater(() -> rootLayout.getChildren().remove(undoBtn));
+                            } catch (InterruptedException ignored) {}
+                        }).start();
+                    }
+                });
+            }
+            return null;
+        });
+
+        dialog.showAndWait();
+    }
+
+    /**
+     * Checks for duplicate and missing tags within the dataset.
+     * Displays a formatted report with results.
+     */
+    private void checkDuplicatesAndMissing() {
+        Map<String, Long> dupes = fishList.stream()
+                .collect(Collectors.groupingBy(Fish::getTag, Collectors.counting()));
+
+        List<String> duplicateTags = dupes.entrySet().stream()
+                .filter(e -> e.getValue() > 1)
+                .map(e -> e.getKey() + " (" + e.getValue() + "×)")
+                .toList();
+
+        List<String> missingTags = fishList.stream()
+                .filter(f -> f.getTag() == null || f.getTag().isBlank())
+                .map(Fish::getCommonName)
+                .toList();
+
+        StringBuilder result = new StringBuilder();
+        if (!duplicateTags.isEmpty())
+            result.append("Duplicates:\n").append(String.join("\n", duplicateTags)).append("\n\n");
+        if (!missingTags.isEmpty())
+            result.append("Missing tags on:\n").append(String.join(", ", missingTags)).append("\n");
+        if (result.isEmpty())
+            result.append("All tags are unique and present.");
+
+        showAlert("Data Integrity Check", result.toString());
+    }
+
+    //---- SUPPORT UTILITIES ----
+    /**
+     * Updates the "Select All" button text based on table state.
+     * If all rows are selected, label becomes "Deselect All".
+     */
+    private void updateToggleButtonState(Button toggleSelectBtn) {
+        if (toggleSelectBtn == null) return;
+        boolean allChecked = !tableData.isEmpty() && tableData.stream().allMatch(FishRow::isSelected);
+        toggleSelectBtn.setText(allChecked ? "Deselect All" : "Select All");
+    }
+    /**
+     * Simple visual pulse animation for highlighting user actions.
+     * @param button The button to animate
+     */
+    private void pulseButton(Button button) {
+        FadeTransition ft = new FadeTransition(Duration.millis(140), button);
+        ft.setFromValue(1.0);
+        ft.setToValue(0.65);
+        ft.setCycleCount(2);
+        ft.setAutoReverse(true);
+        ft.play();
+    }
+
+    /**
+     * Displays a standard alert dialog styled under NatureTheme.
+     * @param title Dialog title
+     * @param msg   Message content
+     */
+    private void showAlert(String title, String msg) {
+        Alert a = new Alert(Alert.AlertType.INFORMATION);
+        a.setTitle(title);
+        a.setHeaderText(null);
+        a.setContentText(msg);
+        NatureTheme.styleAlert(a);
+        a.showAndWait();
+    }
+
+    //---- DATA WRAPPERS ----
+
+    /**
+     * Represents a row in the fish management table.
+     * Maintains observable properties for JavaFX binding.
+     */
+    public static class FishRow {
+        private final SimpleBooleanProperty selected = new SimpleBooleanProperty(false);
+        private final SimpleStringProperty commonName;
+        private final SimpleStringProperty scientificName;
+        private final SimpleStringProperty size;
+        private final SimpleStringProperty diet;
+        private final SimpleStringProperty habitat;
+        private final SimpleStringProperty status;
+        private final SimpleStringProperty tag;
+
+        /**
+         * Constructs a display row from a Fish object.
+         * Handles null or blank data gracefully.
+         */
+        public FishRow(Fish f) {
+            this.commonName = new SimpleStringProperty(f.getCommonName());
+            this.scientificName = new SimpleStringProperty(f.getScientificName());
+            String unit = (f.getMeasurementUnit() != null) ? f.getMeasurementUnit() : "in";
+            this.size = new SimpleStringProperty(f.getAverageSize() + " " + unit);
+            this.diet = new SimpleStringProperty(
+                    f.getDiet() != null && !f.getDiet().isBlank() ? f.getDiet() : "—"
+            );
+            this.habitat = new SimpleStringProperty(
+                    (f.getHabitats() != null && !f.getHabitats().isEmpty())
+                            ? String.join(", ", f.getHabitats())
+                            : "—"
+            );
+            this.status = new SimpleStringProperty(
+                    f.getConservationStatus() != null && !f.getConservationStatus().isBlank()
+                            ? f.getConservationStatus()
+                            : "—"
+            );
+            this.tag = new SimpleStringProperty(f.getTag());
+        }
+
+        public boolean isSelected() { return selected.get(); }
+        public SimpleBooleanProperty selectedProperty() { return selected; }
+        public SimpleStringProperty commonNameProperty() { return commonName; }
+        public SimpleStringProperty scientificNameProperty() { return scientificName; }
+        public SimpleStringProperty sizeProperty() { return size; }
+        public SimpleStringProperty dietProperty() { return diet; }
+        public SimpleStringProperty habitatProperty() { return habitat; }
+        public SimpleStringProperty statusProperty() { return status; }
+        public SimpleStringProperty tagProperty() { return tag; }
+        public String getTag() { return tag.get(); }
+    }
+
+    /**
+     * Snapshot of a Fish object’s state for undo functionality.
+     * Used when bulk editing or deleting records.
+     */
+    private static class FishSnapshot {
+        String commonName;
+        String scientificName;
+        double averageSize;
+        String measurementUnit;
+        String diet;
+        List<String> habitats;
+        String conservationStatus;
+
+        /**
+         * Creates a snapshot copy from the provided Fish object.
+         */
+        static FishSnapshot of(Fish f) {
+            FishSnapshot s = new FishSnapshot();
+            s.commonName = f.getCommonName();
+            s.scientificName = f.getScientificName();
+            s.averageSize = f.getAverageSize();
+            s.measurementUnit = f.getMeasurementUnit();
+            s.diet = f.getDiet();
+            s.habitats = new ArrayList<>(f.getHabitats() != null ? f.getHabitats() : List.of());
+            s.conservationStatus = f.getConservationStatus();
+            return s;
+        }
+
+        /**
+         * Applies this snapshot’s values back to a Fish object.
+         */
+        void applyTo(Fish f) {
+            f.setCommonName(commonName);
+            f.setScientificName(scientificName);
+            f.setAverageSize(averageSize);
+            f.setMeasurementUnit(measurementUnit);
+            f.setDiet(diet);
+            f.setHabitats(new ArrayList<>(habitats));
+            f.setConservationStatus(conservationStatus);
+        }
+    }
+
+    //---- UTILITY METHODS----
+
+    /**
+     * Applies NatureTheme color styling to dialog headers safely.
+     * Uses Platform.runLater() to ensure thread-safe UI access.
+     */
+    private void safeHeaderStyle(DialogPane dp) {
+        Platform.runLater(() -> {
+            var header = dp.lookup(".header-panel");
+            if (header != null) {
+                header.setStyle("-fx-background-color: " + NatureTheme.PRIMARY_COLOR + "; -fx-text-fill: white;");
+            }
+        });
+    }
+
+    /**
+     * Smoothly animates height transitions for expanding/collapsing elements.
+     * @param region    The region to animate
+     * @param newHeight Target height in pixels
+     */
+    private void animateHeight(Region region, double newHeight) {
+        javafx.animation.Timeline timeline = new javafx.animation.Timeline(
+                new javafx.animation.KeyFrame(
+                        Duration.millis(250),
+                        new javafx.animation.KeyValue(region.prefHeightProperty(), newHeight)
+                )
+        );
+        timeline.play();
+    }
+}
