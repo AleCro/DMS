@@ -16,9 +16,9 @@ import static org.junit.jupiter.api.Assertions.*;
  * These tests use a mock Scanner to simulate user input instead of real console input.
  * This approach makes the addFish() method fully testable without user interaction.
  */
-public class AddFishTest {
+public class AddFishTest{
 
-    private List<Fish> fishList;
+    private List<Fish>fishList;
 
     /**
      * Runs before each test.
@@ -40,7 +40,7 @@ public class AddFishTest {
      *   - All attributes should match the input data.
      */
     @Test
-    void testAddFishSuccess() {
+    void testAddFishSuccess(){
         //Simulate valid user input sequence for one fish record
         String input=String.join("\n",
                 "Bass",//Common name
@@ -167,4 +167,3 @@ public class AddFishTest {
         assertTrue(fishList.isEmpty(),"No fish should be added when user cancels with '~'");
     }
 }
-
