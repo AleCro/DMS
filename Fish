@@ -6,66 +6,137 @@ import java.util.List;
  *
  * This class stores essential information about a fish, including its name,
  * scientific classification, average size, diet, habitats, conservation status,
- * and identification tag. It includes validation to prevent invalid data and
- * provides a readable string representation for display.
+ * and identification tag. It also supports customizable size measurement units.
  */
-public class Fish{
-    private String commonName; // Common name of the fish
-    private String scientificName; // Scientific (Latin) name
-    private double averageSize; // Average size in inches (must be > 0)
-    private String diet; // Diet description
-    private List<String> habitats; // List of habitats where the fish is found
-    private String conservationStatus; // Conservation status (e.g., Endangered)
-    private String tag; // Unique ID tag (format: 000-00-0000)
+public class Fish {
+    private String commonName;            // Common name of the fish
+    private String scientificName;        // Scientific (Latin) name
+    private double averageSize;           // Average size (must be > 0)
+    private String measurementUnit = "in"; // ✅ Default unit ("mm", "cm", "m", "in", "ft", "yd")
+    private String diet;                  // Diet description
+    private List<String> habitats;        // List of habitats where the fish is found
+    private String conservationStatus;    // Conservation status (e.g., Endangered)
+    private String tag;                   // Unique ID tag (format: 000-00-0000)
 
     /**
      * Constructs a new Fish object with the specified attributes.
      * Ensures that the average size is always positive.
      */
-    public Fish(String commonName,String scientificName,double averageSize,String diet,List<String> habitats,String conservationStatus,String tag){
-        this.commonName=commonName;
-        this.scientificName=scientificName;
-        this.averageSize=(averageSize>0)?averageSize:1.0;
-        this.diet=diet;
-        this.habitats=habitats;
-        this.conservationStatus=conservationStatus;
-        this.tag=tag;
+    public Fish(String commonName, String scientificName, double averageSize, String diet,
+                List<String> habitats, String conservationStatus, String tag) {
+        this.commonName = commonName;
+        this.scientificName = scientificName;
+        this.averageSize = (averageSize > 0) ? averageSize : 1.0;
+        this.diet = diet;
+        this.habitats = habitats;
+        this.conservationStatus = conservationStatus;
+        this.tag = tag;
     }
 
     // ---- Getters and Setters ----
-    public String getCommonName(){return commonName;}
-    public void setCommonName(String commonName){this.commonName=commonName;}
-    public String getScientificName(){return scientificName;}
-    public void setScientificName(String scientificName){this.scientificName=scientificName;}
-    public double getAverageSize(){return averageSize;}
+    public String getCommonName() {
+        return commonName;
+    }
+
+    public void setCommonName(String commonName) {
+        this.commonName = commonName;
+    }
+
+    public String getScientificName() {
+        return scientificName;
+    }
+
+    public void setScientificName(String scientificName) {
+        this.scientificName = scientificName;
+    }
+
+    public double getAverageSize() {
+        return averageSize;
+    }
 
     /**
      * Sets the average size of the fish.
      * Rejects non-positive values and retains the last valid value.
      */
-    public void setAverageSize(double averageSize){
-        if(averageSize>0){this.averageSize=averageSize;}
-        else{System.out.println("Invalid average size ("+averageSize+"). Keeping previous value.");}
+    public void setAverageSize(double averageSize) {
+        if (averageSize > 0) {
+            this.averageSize = averageSize;
+        } else {
+            System.out.println("Invalid average size (" + averageSize + "). Keeping previous value.");
+        }
     }
 
-    public String getDiet(){return diet;}
-    public void setDiet(String diet){this.diet=diet;}
-    public List<String> getHabitats(){return habitats;}
-    public void setHabitats(List<String> habitats){this.habitats=habitats;}
-    public String getConservationStatus(){return conservationStatus;}
-    public void setConservationStatus(String conservationStatus){this.conservationStatus=conservationStatus;}
-    public String getTag(){return tag;}
-    public void setTag(String tag){this.tag=tag;}
+    /** ✅ Measurement Unit Accessors */
+    public String getMeasurementUnit() {
+        return measurementUnit;
+    }
+
+    public void setMeasurementUnit(String measurementUnit) {
+        if (measurementUnit == null) {
+            System.out.println("Measurement unit cannot be null. Defaulting to 'in'.");
+            this.measurementUnit = "in";
+            return;
+        }
+
+        // Convert to lowercase for consistency
+        String unit = measurementUnit.toLowerCase();
+
+        switch (unit) {
+            case "mm":
+            case "cm":
+            case "m":
+            case "in":
+            case "ft":
+            case "yd":
+                this.measurementUnit = unit;
+                break;
+            default:
+                System.out.println("Invalid measurement unit: " + measurementUnit + ". Defaulting to 'in'.");
+                this.measurementUnit = "in";
+        }
+    }
+
+    public String getDiet() {
+        return diet;
+    }
+
+    public void setDiet(String diet) {
+        this.diet = diet;
+    }
+
+    public List<String> getHabitats() {
+        return habitats;
+    }
+
+    public void setHabitats(List<String> habitats) {
+        this.habitats = habitats;
+    }
+
+    public String getConservationStatus() {
+        return conservationStatus;
+    }
+
+    public void setConservationStatus(String conservationStatus) {
+        this.conservationStatus = conservationStatus;
+    }
+
+    public String getTag() {
+        return tag;
+    }
+
+    public void setTag(String tag) {
+        this.tag = tag;
+    }
 
     // ---- Object Representation ----
     @Override
-    public String toString(){
-        return "Common Name: "+commonName+
-                "\nScientific Name: "+scientificName+
-                "\nAverage Size: "+averageSize+" inches"+
-                "\nDiet: "+diet+
-                "\nHabitats: "+String.join(", ",habitats)+
-                "\nConservation Status: "+conservationStatus+
-                "\nTag: "+tag;
+    public String toString() {
+        return "Common Name: " + commonName +
+                "\nScientific Name: " + scientificName +
+                "\nAverage Size: " + averageSize + " " + measurementUnit +
+                "\nDiet: " + diet +
+                "\nHabitats: " + String.join(", ", habitats) +
+                "\nConservation Status: " + conservationStatus +
+                "\nTag: " + tag;
     }
 }
