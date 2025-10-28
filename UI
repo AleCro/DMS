@@ -3,35 +3,39 @@
  * Handles all user interactions for the Florida Native Fish Database Management System (DMS).
  * - Displays menus and submenus
  * - Collects user input
- * - Calls appropriate methods from AddFish, AddFishFromFile, and FishManager
+ * - Calls appropriate methods from AddFish, AddFishFromFile, and FishManagerUI
  * - Manages random fun facts via RandomFunFact
  */
 
 import java.util.List;
 import java.util.Scanner;
 
-public class UI{
-    private Scanner scanner;//Scanner to read user input.
-    private AddFish addFish;//Handles adding fish manually.
-    private AddFishFromFile addFishFromFile;//Handles adding fish from a file.
-    private FishManager fishManager;//Manages operations on the fish list.
-    private List<Fish> fishList;//Reference to the list of Fish objects.
+public class UI {
+    private Scanner scanner;                   // Scanner to read user input.
+    private AddFish addFish;                   // Handles adding fish manually.
+    private AddFishFromFile addFishFromFile;   // Handles adding fish from a file.
+    private FishManager fishManager;           // Core logic for fish management.
+    private FishManagerUI fishManagerUI;       // Handles interactive fish management menu.
+    private List<Fish> fishList;               // Reference to the list of Fish objects.
 
     /**
      * Constructor: Initializes UI with a fish list.
      * - Sets up AddFish and AddFishFromFile handlers
-     * - Initializes FishManager
+     * - Initializes FishManager and its UI
      * - Initializes RandomFunFact to avoid null errors
      * @param fishList the list of Fish objects used by the program
      */
-    public UI(List<Fish>fishList){
-        this.scanner=new Scanner(System.in);
-        this.fishList=fishList;
-        this.addFish=new AddFish(fishList);
-        this.addFishFromFile=new AddFishFromFile(fishList);
-        this.fishManager=new FishManager(fishList);
+    public UI(List<Fish> fishList) {
+        this.scanner = new Scanner(System.in);
+        this.fishList = fishList;
+        this.addFish = new AddFish(fishList);
+        this.addFishFromFile = new AddFishFromFile(fishList);
+        this.fishManager = new FishManager(fishList);
 
-        //Initialize RandomFunFact with the fishManager.
+        //Initialize FishManagerUI (the CLI wrapper around FishManager)
+        this.fishManagerUI = new FishManagerUI(fishManager, scanner);
+
+        // Initialize RandomFunFact with the fishManager.
         RandomFunFact.initialize(fishManager);
     }
 
@@ -40,8 +44,8 @@ public class UI{
      * - Loops until user chooses to exit
      * - Calls methods to add fish, manage fish, or show fun facts
      */
-    public void showMainMenu(){
-        while(true){
+    public void showMainMenu() {
+        while (true) {
             System.out.println("\nWelcome to the Florida Native Fish DMS!");
             System.out.println("Each fish has a unique numeric Fish Tag. Use this Tag to manage records.\n");
 
@@ -52,29 +56,33 @@ public class UI{
             System.out.println("4. Random Fish Fun Fact");
             System.out.println("5. Exit");
             System.out.print("Enter choice (1-5): ");
-            String choice=scanner.nextLine();
+            String choice = scanner.nextLine();
 
-            switch(choice){
-                case"1"->addFish.addFish();//Add a fish manually
-                case"2"->addFishFromFile.addFishFromFile();//Add fish from a file
-                case"3"->fishManager.showManageMenu();//Show management submenu
-                case"4"->showRandomFunFacts();//Show fun facts submenu
-                case"5"->{
+            switch (choice) {
+                case "1" -> addFish.addFish();                    // Add a fish manually
+                case "2" -> addFishFromFile.addFishFromFile();    // Add fish from a file
+
+                //UPDATED: Use FishManagerUI for management instead of FishManager
+                case "3" -> fishManagerUI.showManageMenu();       // Show management submenu
+
+                case "4" -> showRandomFunFacts();                 // Show fun facts submenu
+                case "5" -> {
                     System.out.println("Exiting...");
-                    return;// Exit program
+                    return; // Exit program
                 }
-                default->System.out.println("Invalid choice. Please select 1-5.");
+                default -> System.out.println("Invalid choice. Please select 1-5.");
             }
         }
     }
+
     /**
      * Displays the Random Fun Facts submenu.
      * - Options: random fun fact, average habitats, top diversity fish
      * - Loops until the user chooses to go back
      */
-    private void showRandomFunFacts(){
-        boolean inFunFactMenu=true;
-        while(inFunFactMenu){
+    private void showRandomFunFacts() {
+        boolean inFunFactMenu = true;
+        while (inFunFactMenu) {
             System.out.println("\n--- Random Fish Fun Fact Menu ---");
             System.out.println("1. Show a random fish fun fact");
             System.out.println("2. Show average habitats per fish");
@@ -83,29 +91,29 @@ public class UI{
             System.out.print("Enter choice: ");
             String choice = scanner.nextLine().trim();
 
-            switch (choice){
-                case"1"->{
+            switch (choice) {
+                case "1" -> {
                     System.out.println("\n[Random Fun Fact]");
-                    System.out.println(RandomFunFact.getRandomFact());// Display a random fact.
+                    System.out.println(RandomFunFact.getRandomFact()); // Display a random fact.
                 }
-                case"2"->{
-                    double avg=fishManager.calculateAverageHabitatsPerFish();
-                    System.out.printf("\n[Average Habitats Per Fish] %.2f%n",avg);
+                case "2" -> {
+                    double avg = fishManager.calculateAverageHabitatsPerFish();
+                    System.out.printf("\n[Average Habitats Per Fish] %.2f%n", avg);
                 }
-                case"3"->{
-                    String topFish=fishManager.getTopDiversityFish();
+                case "3" -> {
+                    String topFish = fishManager.getTopDiversityFish();
                     System.out.println("\n[Top Ecological Diversity Fish]");
                     System.out.println(topFish);
                 }
-                case"~"->inFunFactMenu=false;// Return to main menu.
-                default->System.out.println("Invalid choice. Please select 1, 2, 3, or ~.");
+                case "~" -> inFunFactMenu = false; // Return to main menu.
+                default -> System.out.println("Invalid choice. Please select 1, 2, 3, or ~.");
             }
-            //Ask user if they want to choose another fun fact option.
-            if(inFunFactMenu){
+            // Ask user if they want to choose another fun fact option.
+            if (inFunFactMenu) {
                 System.out.print("\nWould you like to choose another fun fact option? (y/n): ");
-                String again=scanner.nextLine().trim();
-                if(!again.equalsIgnoreCase("y")){
-                    inFunFactMenu=false;
+                String again = scanner.nextLine().trim();
+                if (!again.equalsIgnoreCase("y")) {
+                    inFunFactMenu = false;
                 }
             }
         }
