@@ -25,6 +25,7 @@ public class FishManagerUI {
     public void showManageMenu() {
         while (true) {
             System.out.println("\n--- Manage Fish Menu ---");
+            System.out.println("Mode: " + (manager.getFishList() instanceof ArrayList ? "Local Mock" : "Database"));
             System.out.println("1. List all fish");
             System.out.println("2. Search fish by tag");
             System.out.println("3. Update fish by tag");
@@ -141,6 +142,19 @@ public class FishManagerUI {
                     }
                     default -> System.out.println("Invalid choice. Please choose 1–8.");
                 }
+
+                // Automatically persist changes
+                manager.updateFishByTag(
+                        fish.getTag(),
+                        fish.getCommonName(),
+                        fish.getScientificName(),
+                        fish.getAverageSize(),
+                        fish.getDiet(),
+                        fish.getHabitats(),
+                        fish.getConservationStatus(),
+                        fish.getTag()
+                );
+
                 System.out.print("Would you like to update another field? (y/n): ");
                 if (!scanner.nextLine().equalsIgnoreCase("y")) break;
             }
@@ -168,8 +182,11 @@ public class FishManagerUI {
             } else {
                 Fish fish = chooseFishFromMatches(matches);
                 if (fish == null) continue;
-                manager.getFishList().remove(fish);
-                System.out.println("Fish with tag " + tag + " removed successfully.");
+
+                // Handles database and local mode
+                boolean removed = manager.removeFishByTag(fish.getTag());
+                if (removed) System.out.println("Fish with tag " + tag + " removed successfully.");
+                else System.out.println("Error removing fish — record not found.");
             }
             System.out.print("Would you like to remove another fish? (y/n): ");
             if (!scanner.nextLine().equalsIgnoreCase("y")) removing = false;
@@ -193,7 +210,6 @@ public class FishManagerUI {
     }
 
     //FIELD UPDATE HELPERS
-
     /**
      * Updates the common name of a given fish, validating that
      * the input contains only alphabetic characters.
@@ -236,7 +252,6 @@ public class FishManagerUI {
                 continue;
             }
 
-            // Extract numeric and unit parts separately (e.g., "12 cm" → 12 + "cm")
             String numericPart = input.replaceAll("[^\\d.]", "");
             String unit = input.replaceAll("[\\d.\\s]", "").toLowerCase();
 
@@ -293,7 +308,6 @@ public class FishManagerUI {
                 continue;
             }
 
-            // Allows multiple habitat selections by numeric index (comma-separated)
             String[] choices = input.split("\\s*,\\s*");
             boolean valid = true;
             habitats.clear();
