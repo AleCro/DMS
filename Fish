@@ -12,7 +12,7 @@ public class Fish {
     private String commonName;            // Common name of the fish
     private String scientificName;        // Scientific (Latin) name
     private double averageSize;           // Average size (must be > 0)
-    private String measurementUnit = "in"; // ✅ Default unit ("mm", "cm", "m", "in", "ft", "yd")
+    private String measurementUnit = "in"; // Default unit ("mm", "cm", "m", "in", "ft", "yd")
     private String diet;                  // Diet description
     private List<String> habitats;        // List of habitats where the fish is found
     private String conservationStatus;    // Conservation status (e.g., Endangered)
