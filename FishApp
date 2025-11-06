@@ -1,27 +1,103 @@
 /**
  * Alejandro Coro Lopez
  * CEN 3024 - Software Development 1
- * OCtober 20, 2025.
+ * October 20, 2025
+ *
  * FishApp.java
- * Main class for the Florida Native Fish Database Management System (DMS).
- * - Creates a list to store fish.
- * - Initializes the UI.
- * - Starts the main menu.
+ * Prompts for database connection once; user can retry invalid paths or press ~ to skip.
+ * Validates path with exceptions.
  */
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Scanner;
 
-public class FishApp{
+public class FishApp {
+
+    public static void main(String[] args) {
+        Scanner scanner = new Scanner(System.in);
+        FishDAO dao = new FishDAO();
+        boolean connected = false;
+        String answer = "";
+
+        // Repeat until valid input (yes/no)
+        while (true) {
+            System.out.println("\nWould you like to connect to a SQLite database? (yes/no)");
+            answer = scanner.nextLine().trim().toLowerCase();
+
+            if (answer.equals("yes") || answer.equals("no")) {
+                break; // valid input, exit loop
+            } else {
+                System.out.println("Please type 'yes' or 'no'.");
+            }
+        }
+        if (answer.equals("yes")){
+            while (true) {
+                System.out.print("\nEnter SQLite database path (e.g., C:\\Users\\alex\\Desktop\\florida_fish.db)\n" +
+                        "Or press ~ to cancel DB connection: ");
+                String dbPath = scanner.nextLine().trim();
+
+                // If user cancels
+                if(dbPath.equals("~")){
+                    System.out.println("Skipping database connection. Running in local mode.");
+                    dao.connect(""); // mock
+                    break;
+                }
+                try{
+                    validateDbPath(dbPath);
+                    connected=dao.connect(dbPath);
+                    if(connected){
+                        System.out.println("✔ Connected to database successfully!");
+                        break;
+                    }else{
+                        System.out.println("⚠ Could not connect. Try again, or press ~ to cancel.");
+                    }
+                }catch(IllegalArgumentException e){
+                    System.out.println("Invalid: " + e.getMessage());
+                    System.out.println("Try again, or press ~ to cancel.");
+                }catch(Exception e){
+                    System.out.println("⚠ Unexpected error: " + e.getMessage());
+                    System.out.println("Try again, or press ~ to cancel.");
+                }
+            }
+        }else{
+            System.out.println("Running in local (in-memory) mode — changes will not be saved after exit.");
+            dao.connect(""); // mock
+        }
+
+        // Use the correct fish list depending on connection mode
+        List<Fish> fishList = dao.isUsingDatabase() ? dao.getAllFish():new ArrayList<>();
+
+        // Create a FishManager linked to the DAO
+        FishManager fishManager = new FishManager(dao);
+
+        // Pass the DAO and FishManager into the UI
+        UI ui = new UI(dao, fishManager);
+        ui.showMainMenu();
+
+        dao.disconnect();
+        System.out.println("\nApplication closed. Goodbye!");
+    }
+
     /**
-     * Program entry point.
-     * - Creates list of Fish objects.
-     * - Initializes UI with fish list.
-     * - Shows the main menu.
+     * Validates the SQLite file path supplied by the user.
      */
-    public static void main(String[]args){
-        List<Fish>fishList=new ArrayList<>();//Store fish objects.
-        UI ui=new UI(fishList);//Initialize UI with fish list.
-        ui.showMainMenu();//Start program menu.
+    private static void validateDbPath(String path) throws IllegalArgumentException{
+        if (path == null || path.isBlank()) {
+            throw new IllegalArgumentException("Path cannot be empty.");
+        }
+        path = path.replace("\"", ""); // Remove quotes if copied from Explorer
+
+        if (!(path.endsWith(".db") || path.endsWith(".sqlite"))){
+            throw new IllegalArgumentException("File must end with .db or .sqlite");
+        }
+        File file = new File(path);
+        if (!file.exists()) {
+            throw new IllegalArgumentException("File not found: " + path);
+        }
+        if (!file.isFile()) {
+            throw new IllegalArgumentException("The specified path is not a valid file.");
+        }
     }
 }
