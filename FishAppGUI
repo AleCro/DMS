@@ -37,28 +37,53 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
-public class FishAppGUI extends Application{
+public class FishAppGUI extends Application {
 
     //Centralized fish list shared across all tabs
-    private final List<Fish>fishList=new ArrayList<>();
+    private final List<Fish> fishList = new ArrayList<>();
 
-    //Handles core data operations and analytics
-    private final FishManager fishManager=new FishManager(fishList);
+    //Handles all database operations (CRUD and analytics)
+    private final FishDAO fishDAO = new FishDAO();
+
+    //Handles core data operations and analytics (uses DAO for DB or local mode)
+    private final FishManager fishManager = new FishManager(fishDAO);
 
     //Management console tab reference (used for refresh updates)
     private ManageFishLogicGUI manageTab;
 
     //Launches the JavaFX application.
-    public static void main(String[]args){
+    public static void main(String[] args) {
         launch(args);
     }
 
-
-     //JavaFX entry point.
-     //Initializes the main window and shows the welcome screen.
+    //JavaFX entry point.
+    //Initializes the main window and shows the welcome screen.
     @Override
-    public void start(Stage stage){
+    public void start(Stage stage) {
         stage.setTitle("Florida Native Fish DMS");
+
+        //Prompt the user for a database file
+        FileChooser chooser = new FileChooser();
+        chooser.setTitle("Select SQLite Database File");
+        chooser.getExtensionFilters().add(
+                new FileChooser.ExtensionFilter("SQLite Database", "*.db")
+        );
+        File dbFile = chooser.showOpenDialog(stage);
+
+        //Attempt connection
+        if (dbFile != null && fishDAO.connect(dbFile.getAbsolutePath())) {
+            fishList.clear();
+            fishList.addAll(fishDAO.getAllFish());
+            System.out.println("Loaded " + fishList.size() + " records from database.");
+        } else {
+            System.out.println("No database selected. Running in mock (in-memory) mode.");
+        }
+
+        //Sync FishManager with the current fish list
+        fishManager.getFishList().clear();
+        fishManager.getFishList().addAll(fishList);
+
+        //Show welcome screen
         stage.setScene(createWelcomeScene(stage));
         stage.show();
     }
@@ -138,7 +163,7 @@ public class FishAppGUI extends Application{
         root.setPadding(new Insets(16));
         NatureTheme.applyBackground(root);
 
-        manageTab=new ManageFishLogicGUI(fishList, fishManager);
+        manageTab=new ManageFishLogicGUI(fishList, fishManager, fishDAO);
         tabPane.getTabs().addAll(
                 createAddFishTab(),
                 createAddFromFileTab(),
@@ -308,7 +333,7 @@ public class FishAppGUI extends Application{
                 //Add new fish record
                 Fish fish=new Fish(common, sci, size, diet, habitats, status, tag);
                 fish.setMeasurementUnit(unit);
-                fishManager.addFish(fish);
+                fishDAO.addFish(fish); //Store new fish in the database (if connected)
 
                 if(duplicateTag)
                     showAlert("Note","Another Fish already has this tag: "+tag+"\nYou can edit or merge this later in Manage Fish.");
@@ -511,14 +536,23 @@ public class FishAppGUI extends Application{
                 try{
                     Fish f = new Fish(common, sci, size, diet, habitats, status, tag);
                     f.setMeasurementUnit(unit);
+
+                    // Add fish to both the in-memory list and the SQLite database
                     fishManager.addFish(f);
+                    fishDAO.addFish(f); //  persist record to database
+
+                    // ---- Refresh Manage tab to reflect imported data ----
+                    if (manageTab != null) {
+                        manageTab.refresh(); //  reloads table immediately
+                    }
+
                     successCount++;
                 }catch (Exception e){
                     allErrors.append("Line ").append(lineNumber)
                             .append(": Unexpected error → ").append(e.getMessage()).append("\n");
                 }
             }
-        }catch(Exception e) {
+        }catch(Exception e){
             showAlert("Error","Failed to import: "+e.getMessage());
             return;
         }
@@ -593,7 +627,6 @@ public class FishAppGUI extends Application{
                 "Average Habitats",
                 String.format("%.2f",fishManager.calculateAverageHabitatsPerFish()))
         );
-
         Button avgSize=new Button("Average Size");
         NatureTheme.stylePrimary(avgSize);
         avgSize.setOnAction(e -> {
@@ -610,11 +643,19 @@ public class FishAppGUI extends Application{
                     String.format("%.2f %s",fishManager.calculateAverageSize(),commonUnit));
         });
 
+        //Database-based average size
+        Button avgDB = new Button("Average Size (Database)");
+        NatureTheme.stylePrimary(avgDB);
+        avgDB.setOnAction(e -> {
+            double avg = fishDAO.calculateAverageFishSize();
+            showAlert("Database Average Size", String.format("%.2f", avg));
+        });
+
         Button topFish=new Button("Most Ecologically Diverse Fish");
         NatureTheme.stylePrimary(topFish);
         topFish.setOnAction(e->showAlert("Top Diversity", fishManager.getTopDiversityFish()));
 
-        VBox buttonCol=new VBox(12, avgHab, avgSize, topFish);
+        VBox buttonCol = new VBox(12, avgHab, avgSize, avgDB, topFish);
         buttonCol.setAlignment(Pos.TOP_LEFT);
 
         VBox content=new VBox(14,buildBanner("Analytics"),wrapInCard(buttonCol));
@@ -674,7 +715,6 @@ public class FishAppGUI extends Application{
             -fx-background-radius: 8;
             -fx-cursor: hand;
         """));
-
         //Fade-in effect when showing a new fact
         fact.setOnAction(e->{
             RandomFunFact.initialize(fishManager);
@@ -688,7 +728,6 @@ public class FishAppGUI extends Application{
             fade.play();
             area.setText(newFact);
         });
-
         VBox innerBox=new VBox(15,fact,area);
         innerBox.setAlignment(Pos.TOP_CENTER);
         innerBox.setPadding(new Insets(20));
@@ -714,4 +753,3 @@ public class FishAppGUI extends Application{
         a.showAndWait();
     }
 }
-
