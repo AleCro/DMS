@@ -3,81 +3,90 @@ import org.junit.jupiter.api.Test;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * AddFishFromFileTest.java
- * Unit test suite for the AddFishFromFile class.
+ * Unit test suite for the AddFishFromFile class (FishManager version).
  *
  * Purpose:
  * - Verify that valid fish records are successfully loaded from a text file.
  * - Ensure invalid or improperly formatted lines are rejected safely.
  * - Confirm duplicate tag entries are handled with warnings, not crashes.
  * - Validate robustness of private method processFile() through reflection.
- *
- * Test Design:
- * - Uses temporary files to simulate user-uploaded input data.
- * - Employs JUnit assertions to check for list contents and size changes.
- * - Directly invokes the private file-processing method for precision testing.
  */
-public class AddFishFromFileTest{
-    private List<Fish> fishList;
+public class AddFishFromFileTest {
+    private FishManager fishManager;
     private AddFishFromFile addFishFromFile;
 
     @BeforeEach
-    void setUp(){
-        fishList=new ArrayList<>();
-        addFishFromFile=new AddFishFromFile(fishList);
+    void setUp() {
+        // Use a FishManager backed by a mock DAO (not connected)
+        FishDAO mockDao = new FishDAO();
+        mockDao.connect(""); // run in-memory
+        fishManager = new FishManager(mockDao);
+        addFishFromFile = new AddFishFromFile(fishManager);
     }
 
-    // ----  Valid File Processing ----
+    // ---- Valid File Processing ----
     @Test
-    void testProcessValidFile() throws Exception{
-        File tempFile=createTempFile("""
+    void testProcessValidFile() throws Exception {
+        File tempFile = createTempFile("""
             Bass - Micropterus salmoides - 12 in - algae, insects - River, Lake - Least Concern - 001-00-0001
             Snook - Centropomus undecimalis - 24 in - shrimp, small fish - Estuary, Mangrove - Near Threatened - 002-00-0002
         """);
-        var method=AddFishFromFile.class.getDeclaredMethod("processFile",File.class);
+
+        var method = AddFishFromFile.class.getDeclaredMethod("processFile", File.class);
         method.setAccessible(true);
-        method.invoke(addFishFromFile,tempFile);
-        assertEquals(2,fishList.size(),"Two valid fish should be added from the file");
-        assertEquals("Bass",fishList.get(0).getCommonName(),"First fish should be 'Bass'");
-        assertEquals("Snook",fishList.get(1).getCommonName(),"Second fish should be 'Snook'");
+        method.invoke(addFishFromFile, tempFile);
+
+        List<Fish> fishList = fishManager.getFishList();
+        assertEquals(2, fishList.size(), "Two valid fish should be added from the file");
+        assertEquals("Bass", fishList.get(0).getCommonName(), "First fish should be 'Bass'");
+        assertEquals("Snook", fishList.get(1).getCommonName(), "Second fish should be 'Snook'");
     }
 
-    // ----  Invalid File Processing ----
+    // ---- Invalid File Processing ----
     @Test
-    void testProcessInvalidFile() throws Exception{
-        File tempFile=createTempFile("""
+    void testProcessInvalidFile() throws Exception {
+        File tempFile = createTempFile("""
             BadFish - Micropterus - 0 in - algae - River, Lake - Least Concern - 000-00-0001
             Guppy - Poecilia reticulata - 1.5 in - plankton - Lake - UnknownStatus - 000-00-0002
             Redfish - Sciaenops ocellatus - 18 in - crustaceans - Estuary, Reef - Least Concern - BADTAG
         """);
-        var method=AddFishFromFile.class.getDeclaredMethod("processFile",File.class);
+
+        var method = AddFishFromFile.class.getDeclaredMethod("processFile", File.class);
         method.setAccessible(true);
-        method.invoke(addFishFromFile,tempFile);
-        assertEquals(0,fishList.size(),"No invalid fish entries should be added to the list");
+        method.invoke(addFishFromFile, tempFile);
+
+        List<Fish> fishList = fishManager.getFishList();
+        assertEquals(0, fishList.size(), "No invalid fish entries should be added to the list");
     }
 
     // ---- Duplicate Tag Handling ----
     @Test
-    void testDuplicateTagHandling() throws Exception{
-        fishList.add(new Fish("Bass","Micropterus salmoides",12.0,"insects, algae",List.of("Lake"),"Least Concern","111-11-1111"));
-        File tempFile=createTempFile("""
+    void testDuplicateTagHandling() throws Exception {
+        // Add initial fish manually
+        fishManager.addFish(new Fish("Bass", "Micropterus salmoides", 12.0, "insects, algae",
+                List.of("Lake"), "Least Concern", "111-11-1111"));
+
+        File tempFile = createTempFile("""
             Bluegill - Lepomis macrochirus - 8 in - insects - Lake, River - Least Concern - 111-11-1111
         """);
-        var method=AddFishFromFile.class.getDeclaredMethod("processFile",File.class);
+
+        var method = AddFishFromFile.class.getDeclaredMethod("processFile", File.class);
         method.setAccessible(true);
-        method.invoke(addFishFromFile,tempFile);
-        assertEquals(2,fishList.size(),"Duplicate tag fish should still be added as per warning specification");
+        method.invoke(addFishFromFile, tempFile);
+
+        List<Fish> fishList = fishManager.getFishList();
+        assertEquals(2, fishList.size(), "Duplicate tag fish should still be added as per warning specification");
     }
 
-    // ----  Utility Method: Temporary File Creation ----
-    private File createTempFile(String content) throws IOException{
-        File tempFile=File.createTempFile("fish_test_",".txt");
-        try(FileWriter writer=new FileWriter(tempFile)){
+    // ---- Utility Method: Temporary File Creation ----
+    private File createTempFile(String content) throws IOException {
+        File tempFile = File.createTempFile("fish_test_", ".txt");
+        try (FileWriter writer = new FileWriter(tempFile)) {
             writer.write(content);
         }
         tempFile.deleteOnExit();
