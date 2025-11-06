@@ -14,7 +14,7 @@ import javafx.scene.text.FontWeight;
  * It defines color schemes, font styles, and reusable methods for styling JavaFX components,
  * ensuring a cohesive and professional look across all tabs and dialogs.
  */
-public class NatureTheme {
+public class NatureTheme{
 
     //COLOR PALETTE
     /** Primary forest-green color used for headers and key buttons. */
@@ -60,14 +60,14 @@ public class NatureTheme {
      * Applied to important actions like "Delete" or "Save".
      * @param btn The button to style.
      */
-    public static void stylePrimary(Button btn) {
+    public static void stylePrimary(Button btn){
         btn.setStyle("-fx-background-color: " + PRIMARY_COLOR + ";" +
                 "-fx-text-fill: white;" +
                 "-fx-font-weight: bold;" +
                 "-fx-background-radius: 8;" +
                 "-fx-cursor: hand;");
 
-        btn.setOnMouseEntered(e -> btn.setStyle("-fx-background-color: " + BUTTON_HOVER + ";" +
+        btn.setOnMouseEntered(e ->btn.setStyle("-fx-background-color: " + BUTTON_HOVER + ";" +
                 "-fx-text-fill: white;" +
                 "-fx-font-weight: bold;" +
                 "-fx-background-radius: 8;"));
@@ -125,21 +125,21 @@ public class NatureTheme {
      * @param table The table to apply styling to.
      */
     @SuppressWarnings("deprecation") // Hides warnings on older JavaFX versions
-    public static void styleTable(TableView<?> table) {
-        table.setStyle("-fx-background-color: white;" +
-                "-fx-border-color: " + PRIMARY_COLOR + ";" +
-                "-fx-border-width: 1;" +
-                "-fx-selection-bar: " + ACCENT_COLOR + ";" +
-                "-fx-selection-bar-non-focused: " + ACCENT_COLOR + ";");
+    public static void styleTable(TableView<?> table){
+        table.setStyle("-fx-background-color: white;"+
+                "-fx-border-color: " + PRIMARY_COLOR+";"+
+                "-fx-border-width: 1;"+
+                "-fx-selection-bar: "+ ACCENT_COLOR+";"+
+                "-fx-selection-bar-non-focused:"+ACCENT_COLOR+";");
 
         //Compatibility handling for JavaFX 17+ and 21+
-        try {
+        try{
             table.setColumnResizePolicy(
-                    (TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN != null)
+                    (TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN !=null)
                             ? TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN
                             : TableView.CONSTRAINED_RESIZE_POLICY
             );
-        } catch (NoSuchFieldError e) {
+        }catch(NoSuchFieldError e){
             table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         }
     }
@@ -149,11 +149,11 @@ public class NatureTheme {
      * Styles a container or card region with soft borders and padding.
      * @param region The region (VBox, HBox, etc.) to style.
      */
-    public static void styleCard(Region region) {
-        region.setStyle("-fx-background-color: white;" +
-                "-fx-background-radius: 10;" +
-                "-fx-border-radius: 10;" +
-                "-fx-border-color: " + ACCENT_COLOR + ";" +
+    public static void styleCard(Region region){
+        region.setStyle("-fx-background-color: white;"+
+                "-fx-background-radius: 10;"+
+                "-fx-border-radius: 10;"+
+                "-fx-border-color: "+ACCENT_COLOR+";"+
                 "-fx-border-width: 1;");
         if (region instanceof Pane pane) {
             pane.setPadding(new Insets(15));
@@ -165,7 +165,7 @@ public class NatureTheme {
      * Applies a consistent light gradient background to the main layout.
      * @param region The layout region to apply the background to.
      */
-    public static void applyBackground(Region region) {
+    public static void applyBackground(Region region){
         region.setStyle("-fx-background-color: linear-gradient(to bottom, #F1F8E9, #C8E6C9);");
     }
 
@@ -174,7 +174,7 @@ public class NatureTheme {
      * Styles a horizontal toolbar with light green background and rounded edges.
      * @param bar The HBox toolbar to style.
      */
-    public static void styleToolbar(HBox bar) {
+    public static void styleToolbar(HBox bar){
         bar.setSpacing(10);
         bar.setPadding(new Insets(10));
         bar.setStyle("-fx-background-color: #A5D6A7;" +
@@ -187,12 +187,12 @@ public class NatureTheme {
      * Applies background color and consistent header tone.
      * @param alert The alert to style.
      */
-    public static void styleAlert(Alert alert) {
-        DialogPane pane = alert.getDialogPane();
+    public static void styleAlert(Alert alert){
+        DialogPane pane=alert.getDialogPane();
         pane.setStyle("-fx-background-color: #F1F8E9;");
-        var header = pane.lookup(".header-panel");
-        if (header != null) {
-            header.setStyle("-fx-background-color: " + PRIMARY_COLOR + "; -fx-text-fill: white;");
+        var header=pane.lookup(".header-panel");
+        if (header !=null){
+            header.setStyle("-fx-background-color: "+PRIMARY_COLOR+"; -fx-text-fill: white;");
         }
     }
 }
