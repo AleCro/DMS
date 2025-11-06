@@ -33,26 +33,32 @@ import java.util.stream.Collectors;
 @SuppressWarnings("unchecked")
 public class ManageFishLogicGUI {
 
-    /** Underlying fish dataset reference (shared with FishManager).*/
-    private final List<Fish>fishList;
+    /** Underlying fish dataset reference (shared with FishManager). */
+    private final List<Fish> fishList;
 
-    /** Handles fish-related calculations and metrics.*/
+    /** Handles fish-related calculations and metrics. */
     private final FishManager fishManager;
 
-    /** Table data model used for display and selection.*/
-    private final ObservableList<FishRow>tableData = FXCollections.observableArrayList();
+    /** Handles all database persistence (shared instance from main app). */
+    private final FishDAO fishDAO;
 
+    /** Table data model used for display and selection. */
+    private final ObservableList<FishRow> tableData = FXCollections.observableArrayList();
+
+    /** Main table and layout containers. */
     private TableView<FishRow> fishTable;
     private VBox rootLayout;
 
     /**
      * Constructor
-     * @param fishList   Reference to the shared list of fish
+     * @param fishList    Reference to the shared list of fish
      * @param fishManager Manager handling fish data logic
+     * @param fishDAO     Shared database access object
      */
-    public ManageFishLogicGUI(List<Fish> fishList, FishManager fishManager) {
+    public ManageFishLogicGUI(List<Fish> fishList, FishManager fishManager, FishDAO fishDAO) {
         this.fishList = fishList;
         this.fishManager = fishManager;
+        this.fishDAO = fishDAO;
     }
 
     //---- TAB CONSTRUCTION ----
@@ -61,7 +67,7 @@ public class ManageFishLogicGUI {
      * all UI components including the table and controls.
      * @return The configured Tab instance
      */
-    public Tab buildTab() {
+    public Tab buildTab(){
         Tab tab = new Tab("Manage Fish");
         tab.setClosable(false);
 
@@ -114,7 +120,7 @@ public class ManageFishLogicGUI {
         NatureTheme.styleSecondary(dupBtn);
         NatureTheme.styleSecondary(toggleSelectBtn);
 
-        Region spacer = new Region();
+        Region spacer=new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
 
         topBar.getChildren().addAll(
@@ -130,20 +136,20 @@ public class ManageFishLogicGUI {
  * Searches for a fish by its tag and highlights it in the table.
  * If not found, displays a friendly message.
  */
-        searchBtn.setOnAction(e -> {
+        searchBtn.setOnAction(e->{
             String tag = tagField.getText().trim();
-            if (tag.isEmpty()) {
+            if (tag.isEmpty()){
                 showAlert("Search", "Please enter a tag to search.");
                 return;
             }
-            Optional<FishRow> found = tableData.stream()
+            Optional<FishRow>found=tableData.stream()
                     .filter(r -> r.getTag().equalsIgnoreCase(tag))
                     .findFirst();
-            if (found.isPresent()) {
+            if(found.isPresent()) {
                 fishTable.getSelectionModel().select(found.get());
                 fishTable.scrollTo(found.get());
                 showAlert("Search Result", "Found fish with tag: " + tag);
-            } else {
+            }else{
                 showAlert("Search", "No fish found with tag: " + tag);
             }
         });
@@ -152,15 +158,15 @@ public class ManageFishLogicGUI {
  * Handles the "Check Selected" button click.
  * Displays a list of all currently selected fish in a summary alert.
  */
-        checkBtn.setOnAction(e -> {
-            var selected = tableData.stream().filter(FishRow::isSelected).toList();
+        checkBtn.setOnAction(e->{
+            var selected=tableData.stream().filter(FishRow::isSelected).toList();
 
-            if (selected.isEmpty()) {
+            if(selected.isEmpty()){
                 showAlert("Check Selected", "No fish selected.");
                 return;
             }
-            StringBuilder summary = new StringBuilder("Selected Fish:\n\n");
-            for (FishRow row : selected) {
+            StringBuilder summary=new StringBuilder("Selected Fish:\n\n");
+            for(FishRow row : selected) {
                 summary.append("- ")
                         .append(row.commonNameProperty().get())
                         .append(" (Tag: ").append(row.getTag()).append(")\n");
@@ -173,9 +179,8 @@ public class ManageFishLogicGUI {
  * Handles the "Edit / Bulk Edit" button click.
  * Opens an edit dialog for a single selection, or bulk edit for multiple.
  */
-        editBtn.setOnAction(e -> {
+        editBtn.setOnAction(e->{
             var selected = tableData.stream().filter(FishRow::isSelected).toList();
-
             if (selected.isEmpty()) {
                 showAlert("Edit", "No fish selected.");
                 return;
@@ -191,32 +196,30 @@ public class ManageFishLogicGUI {
  * Handles the "Delete" button click.
  * Deletes all currently selected fish and enables temporary Undo.
  */
-        deleteBtn.setOnAction(e -> deleteSelected(toggleSelectBtn));
+        deleteBtn.setOnAction(e->deleteSelected(toggleSelectBtn));
 /**
  * Handles the "Refresh" button click.
  * Reloads the table from the shared fish list to ensure UI consistency.
  */
-        refreshBtn.setOnAction(e -> refresh());
+        refreshBtn.setOnAction(e->refresh());
 /**
  * Handles the "Duplicate Check" button click.
  * Scans for repeated or missing tags and reports findings.
  */
-        dupBtn.setOnAction(e -> checkDuplicatesAndMissing());
+        dupBtn.setOnAction(e->checkDuplicatesAndMissing());
 
 /**
  * Handles the "Select All / Deselect All" button toggle.
  * Updates all row selections accordingly and refreshes the button label.
  */
-        toggleSelectBtn.setOnAction(e -> {
-            boolean selectAll = toggleSelectBtn.getText().equals("Select All");
-            for (FishRow row : tableData)
+        toggleSelectBtn.setOnAction(e->{
+            boolean selectAll=toggleSelectBtn.getText().equals("Select All");
+            for (FishRow row:tableData)
                 row.selectedProperty().set(selectAll);
             updateToggleButtonState(toggleSelectBtn);
         });
 
-        // -------------------------------------------------
         // TABLE SETUP
-        // -------------------------------------------------
         fishTable = new TableView<>(tableData);
         fishTable.setEditable(true);
         fishTable.getSelectionModel().setSelectionMode(SelectionMode.MULTIPLE);
@@ -265,7 +268,7 @@ public class ManageFishLogicGUI {
         expandBtn.setAlignment(Pos.CENTER);
 
         final boolean[] expanded = {false};
-        expandBtn.setOnAction(e -> {
+        expandBtn.setOnAction(e->{
             if (!expanded[0]) {
                 animateHeight(fishTable, 1100);
                 expandBtn.setText("Collapse ↑");
@@ -335,8 +338,8 @@ public class ManageFishLogicGUI {
         });
 
         //SPACEBAR TOGGLE SUPPORT (Keyboard accessibility)
-        fishTable.setOnKeyPressed(event -> {
-            if (event.getCode() == javafx.scene.input.KeyCode.SPACE) {
+        fishTable.setOnKeyPressed(event->{
+            if (event.getCode()==javafx.scene.input.KeyCode.SPACE){
                 var selectionModel = fishTable.getSelectionModel();
                 ObservableList<FishRow> selectedRows = selectionModel.getSelectedItems();
 
@@ -346,7 +349,7 @@ public class ManageFishLogicGUI {
                     for (FishRow row : selectedRows) {
                         row.selectedProperty().set(newVal);
                     }
-                } else {
+                }else{
                     FishRow focused = fishTable.getFocusModel().getFocusedItem();
                     if (focused != null) focused.selectedProperty().set(!focused.isSelected());
                 }
@@ -368,12 +371,30 @@ public class ManageFishLogicGUI {
     }
     //---- CORE ACTIONS----
     /**
-     * Reloads the table contents from the shared fish list.
-     * Ensures synchronization between manager and GUI.
+     * Reloads the table contents from the database if connected,
+     * otherwise from the in-memory list.
+     * Ensures synchronization between data model and UI table.
      */
     public void refresh() {
         tableData.clear();
-        fishList.forEach(f -> tableData.add(new FishRow(f)));
+
+        // Always requery the database if available
+        if (fishDAO != null) {
+            List<Fish> latestData = fishDAO.getAllFish();
+            if (latestData != null && !latestData.isEmpty()) {
+                fishList.clear();
+                fishList.addAll(latestData);
+            }
+        }
+
+        // Repopulate the observable table
+        for (Fish f : fishList) {
+            tableData.add(new FishRow(f));
+        }
+
+        // Force UI redraw (ensures refresh is visible immediately)
+        fishTable.refresh();
+
     }
     /**
      * Deletes all currently selected fish records with a confirmation dialog.
@@ -403,8 +424,13 @@ public class ManageFishLogicGUI {
                 .filter(Objects::nonNull)
                 .toList();
 
-        //Remove from list and refresh table
-        selected.forEach(r -> fishList.removeIf(f -> f.getTag() != null && f.getTag().equals(r.getTag())));
+        //Remove from both in-memory list and database and refresh table
+        for (FishRow r : selected) {
+            String tag = r.getTag();
+            fishList.removeIf(f -> f.getTag() != null && f.getTag().equals(tag));
+            fishDAO.removeFishByTag(tag);   // new line
+        }
+
         refresh();
         updateToggleButtonState(toggleSelectBtn);
 
@@ -421,7 +447,7 @@ public class ManageFishLogicGUI {
         });
 
         //Auto-hide undo after timeout
-        new Thread(() -> {
+        new Thread(()->{
             try { Thread.sleep(10000); Platform.runLater(() -> rootLayout.getChildren().remove(undoBtn)); }
             catch (InterruptedException ignored) {}
         }).start();
@@ -433,15 +459,14 @@ public class ManageFishLogicGUI {
      * Opens a detailed edit dialog for a single fish record.
      * Allows editing of name, size, unit, diet, habitats, and conservation status.
      */
-    private void editSingleFish(FishRow row) {
+    private void editSingleFish(FishRow row){
         Fish target = fishList.stream()
                 .filter(f -> f.getTag() != null && f.getTag().equals(row.getTag()))
                 .findFirst().orElse(null);
-        if (target == null) {
+        if(target == null){
             showAlert("Edit", "Selected fish not found.");
             return;
         }
-
         Dialog<Fish> dialog = new Dialog<>();
         dialog.setTitle("Edit Fish — " + target.getTag());
         DialogPane dp = dialog.getDialogPane();
@@ -454,7 +479,7 @@ public class ManageFishLogicGUI {
         grid.setVgap(10);
         grid.setPadding(new Insets(15));
 
-        // Editable fields for single record
+        //Editable fields for single record
         TextField nameField = new TextField(target.getCommonName());
         TextField sciField = new TextField(target.getScientificName());
         TextField sizeField = new TextField(String.valueOf(target.getAverageSize()));
@@ -492,8 +517,11 @@ public class ManageFishLogicGUI {
                     target.setMeasurementUnit(unitBox.getValue());
                     target.setDiet(dietField.getText());
                     if (!habitatField.getText().isBlank())
-                        target.setHabitats(List.of(habitatField.getText().split("\\s*,\\s*")));
-                    target.setConservationStatus(statusBox.getValue());
+                        target.setHabitats(List.of(habitatField.getText().split("\\s*,\\s*")));target.setConservationStatus(statusBox.getValue());
+
+                    // --- persist edit to database ---
+                    fishDAO.updateFish(target);    // new line
+
                     refresh();
                     return target;
                 } catch (NumberFormatException nfe) {
@@ -502,7 +530,6 @@ public class ManageFishLogicGUI {
             }
             return null;
         });
-
         dialog.showAndWait();
     }
 
@@ -512,15 +539,14 @@ public class ManageFishLogicGUI {
      * Supports undo for 10 seconds.
      * @param selected List of rows currently selected in the table
      */
-    private void bulkEditSelectedFish(List<FishRow> selected) {
+    private void bulkEditSelectedFish(List<FishRow> selected){
         Map<String, FishSnapshot> before = new HashMap<>();
-        for (FishRow r : selected) {
+        for (FishRow r : selected){
             Fish f = fishList.stream()
                     .filter(x -> x.getTag() != null && x.getTag().equals(r.getTag()))
                     .findFirst().orElse(null);
             if (f != null) before.put(f.getTag(), FishSnapshot.of(f));
         }
-
         Dialog<Void> dialog = new Dialog<>();
         dialog.setTitle("Bulk Edit — " + selected.size() + " record(s)");
         DialogPane dp = dialog.getDialogPane();
@@ -559,15 +585,15 @@ public class ManageFishLogicGUI {
         ButtonType applyBtn = new ButtonType("Apply to All", ButtonBar.ButtonData.OK_DONE);
         dp.getButtonTypes().addAll(applyBtn, ButtonType.CANCEL);
 
-        dialog.setResultConverter(btn -> {
-            if (btn == applyBtn) {
+        dialog.setResultConverter(btn ->{
+            if (btn == applyBtn){
                 Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
                 confirm.setTitle("Confirm Bulk Update");
                 confirm.setHeaderText("Apply changes to " + selected.size() + " record(s)?");
                 confirm.setContentText("This will overwrite provided fields for all selected fish.");
                 NatureTheme.styleAlert(confirm);
 
-                confirm.showAndWait().ifPresent(r -> {
+                confirm.showAndWait().ifPresent(r->{
                     if (r == ButtonType.OK) {
                         for (FishRow row : selected) {
                             Fish target = fishList.stream()
@@ -587,6 +613,8 @@ public class ManageFishLogicGUI {
                                 target.setHabitats(List.of(habitatField.getText().split("\\s*,\\s*")));
                             if (statusBox.getValue() != null && !statusBox.getValue().isBlank())
                                 target.setConservationStatus(statusBox.getValue());
+                            // --- persist each edited record to the database ---
+                            fishDAO.updateFish(target);
                         }
 
                         refresh();
@@ -596,8 +624,8 @@ public class ManageFishLogicGUI {
                         NatureTheme.styleSecondary(undoBtn);
                         rootLayout.getChildren().add(1, undoBtn);
 
-                        undoBtn.setOnAction(ev-> {
-                            for (Map.Entry<String, FishSnapshot> entry : before.entrySet()) {
+                        undoBtn.setOnAction(ev->{
+                            for (Map.Entry<String, FishSnapshot> entry : before.entrySet()){
                                 String tag = entry.getKey();
                                 FishSnapshot snap = entry.getValue();
                                 Fish target = fishList.stream()
@@ -612,7 +640,7 @@ public class ManageFishLogicGUI {
                         });
 
                         //Remove undo button automatically after timeout
-                        new Thread(() -> {
+                        new Thread(() ->{
                             try {
                                 Thread.sleep(10000);
                                 Platform.runLater(() -> rootLayout.getChildren().remove(undoBtn));
@@ -623,7 +651,6 @@ public class ManageFishLogicGUI {
             }
             return null;
         });
-
         dialog.showAndWait();
     }
 
@@ -631,7 +658,7 @@ public class ManageFishLogicGUI {
      * Checks for duplicate and missing tags within the dataset.
      * Displays a formatted report with results.
      */
-    private void checkDuplicatesAndMissing() {
+    private void checkDuplicatesAndMissing(){
         Map<String, Long> dupes = fishList.stream()
                 .collect(Collectors.groupingBy(Fish::getTag, Collectors.counting()));
 
@@ -661,7 +688,7 @@ public class ManageFishLogicGUI {
      * Updates the "Select All" button text based on table state.
      * If all rows are selected, label becomes "Deselect All".
      */
-    private void updateToggleButtonState(Button toggleSelectBtn) {
+    private void updateToggleButtonState(Button toggleSelectBtn){
         if (toggleSelectBtn == null) return;
         boolean allChecked = !tableData.isEmpty() && tableData.stream().allMatch(FishRow::isSelected);
         toggleSelectBtn.setText(allChecked ? "Deselect All" : "Select All");
@@ -670,7 +697,7 @@ public class ManageFishLogicGUI {
      * Simple visual pulse animation for highlighting user actions.
      * @param button The button to animate
      */
-    private void pulseButton(Button button) {
+    private void pulseButton(Button button){
         FadeTransition ft = new FadeTransition(Duration.millis(140), button);
         ft.setFromValue(1.0);
         ft.setToValue(0.65);
@@ -684,7 +711,7 @@ public class ManageFishLogicGUI {
      * @param title Dialog title
      * @param msg   Message content
      */
-    private void showAlert(String title, String msg) {
+    private void showAlert(String title, String msg){
         Alert a = new Alert(Alert.AlertType.INFORMATION);
         a.setTitle(title);
         a.setHeaderText(null);
@@ -694,12 +721,11 @@ public class ManageFishLogicGUI {
     }
 
     //---- DATA WRAPPERS ----
-
     /**
      * Represents a row in the fish management table.
      * Maintains observable properties for JavaFX binding.
      */
-    public static class FishRow {
+    public static class FishRow{
         private final SimpleBooleanProperty selected = new SimpleBooleanProperty(false);
         private final SimpleStringProperty commonName;
         private final SimpleStringProperty scientificName;
@@ -713,7 +739,7 @@ public class ManageFishLogicGUI {
          * Constructs a display row from a Fish object.
          * Handles null or blank data gracefully.
          */
-        public FishRow(Fish f) {
+        public FishRow(Fish f){
             this.commonName = new SimpleStringProperty(f.getCommonName());
             this.scientificName = new SimpleStringProperty(f.getScientificName());
             String unit = (f.getMeasurementUnit() != null) ? f.getMeasurementUnit() : "in";
@@ -734,23 +760,23 @@ public class ManageFishLogicGUI {
             this.tag = new SimpleStringProperty(f.getTag());
         }
 
-        public boolean isSelected() { return selected.get(); }
-        public SimpleBooleanProperty selectedProperty() { return selected; }
-        public SimpleStringProperty commonNameProperty() { return commonName; }
-        public SimpleStringProperty scientificNameProperty() { return scientificName; }
-        public SimpleStringProperty sizeProperty() { return size; }
-        public SimpleStringProperty dietProperty() { return diet; }
-        public SimpleStringProperty habitatProperty() { return habitat; }
-        public SimpleStringProperty statusProperty() { return status; }
-        public SimpleStringProperty tagProperty() { return tag; }
-        public String getTag() { return tag.get(); }
+        public boolean isSelected() { return selected.get();}
+        public SimpleBooleanProperty selectedProperty(){return selected;}
+        public SimpleStringProperty commonNameProperty(){return commonName;}
+        public SimpleStringProperty scientificNameProperty(){return scientificName;}
+        public SimpleStringProperty sizeProperty(){return size;}
+        public SimpleStringProperty dietProperty(){return diet;}
+        public SimpleStringProperty habitatProperty(){return habitat;}
+        public SimpleStringProperty statusProperty(){return status;}
+        public SimpleStringProperty tagProperty(){return tag;}
+        public String getTag(){return tag.get();}
     }
 
     /**
      * Snapshot of a Fish object’s state for undo functionality.
      * Used when bulk editing or deleting records.
      */
-    private static class FishSnapshot {
+    private static class FishSnapshot{
         String commonName;
         String scientificName;
         double averageSize;
@@ -762,22 +788,22 @@ public class ManageFishLogicGUI {
         /**
          * Creates a snapshot copy from the provided Fish object.
          */
-        static FishSnapshot of(Fish f) {
-            FishSnapshot s = new FishSnapshot();
-            s.commonName = f.getCommonName();
-            s.scientificName = f.getScientificName();
-            s.averageSize = f.getAverageSize();
-            s.measurementUnit = f.getMeasurementUnit();
-            s.diet = f.getDiet();
-            s.habitats = new ArrayList<>(f.getHabitats() != null ? f.getHabitats() : List.of());
-            s.conservationStatus = f.getConservationStatus();
+        static FishSnapshot of(Fish f){
+            FishSnapshot s=new FishSnapshot();
+            s.commonName=f.getCommonName();
+            s.scientificName=f.getScientificName();
+            s.averageSize=f.getAverageSize();
+            s.measurementUnit=f.getMeasurementUnit();
+            s.diet=f.getDiet();
+            s.habitats=new ArrayList<>(f.getHabitats() != null ? f.getHabitats() : List.of());
+            s.conservationStatus=f.getConservationStatus();
             return s;
         }
 
         /**
          * Applies this snapshot’s values back to a Fish object.
          */
-        void applyTo(Fish f) {
+        void applyTo(Fish f){
             f.setCommonName(commonName);
             f.setScientificName(scientificName);
             f.setAverageSize(averageSize);
@@ -789,15 +815,14 @@ public class ManageFishLogicGUI {
     }
 
     //---- UTILITY METHODS----
-
     /**
      * Applies NatureTheme color styling to dialog headers safely.
      * Uses Platform.runLater() to ensure thread-safe UI access.
      */
-    private void safeHeaderStyle(DialogPane dp) {
-        Platform.runLater(() -> {
-            var header = dp.lookup(".header-panel");
-            if (header != null) {
+    private void safeHeaderStyle(DialogPane dp){
+        Platform.runLater(() ->{
+            var header=dp.lookup(".header-panel");
+            if (header!=null){
                 header.setStyle("-fx-background-color: " + NatureTheme.PRIMARY_COLOR + "; -fx-text-fill: white;");
             }
         });
@@ -808,8 +833,8 @@ public class ManageFishLogicGUI {
      * @param region    The region to animate
      * @param newHeight Target height in pixels
      */
-    private void animateHeight(Region region, double newHeight) {
-        javafx.animation.Timeline timeline = new javafx.animation.Timeline(
+    private void animateHeight(Region region, double newHeight){
+        javafx.animation.Timeline timeline=new javafx.animation.Timeline(
                 new javafx.animation.KeyFrame(
                         Duration.millis(250),
                         new javafx.animation.KeyValue(region.prefHeightProperty(), newHeight)
