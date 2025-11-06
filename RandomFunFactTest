@@ -1,121 +1,162 @@
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * RandomFunFactTest.java
- * Unit test suite for the RandomFunFact class.
  *
- * Purpose:
- * - Verify that random educational facts about Florida fish
- *   are generated, cycled, and reshuffled correctly.
- * - Ensure that no duplicate facts appear within a single cycle.
- * - Confirm proper integration with FishManager statistics
- *   such as average habitats and diversity calculations.
- * - Test robustness, safety, and proper state handling when
- *   reinitialized or run multiple times.
+ * Unit test suite for the RandomFunFact class (Phase 4).
  *
- * These tests confirm that the custom feature ("Random Fun Facts")
- * works as expected per project requirements.
+ * Validates:
+ * - Random fact generation and reshuffling behavior.
+ * - Ensures uniqueness of facts within a cycle.
+ * - Confirms integration with FishManager (average habitats, diversity).
+ * - Verifies safe reinitialization and null-manager handling.
+ * - Tests robustness over multiple calls.
  */
-public class RandomFunFactTest{
+public class RandomFunFactTest {
+
     private FishManager manager;
+    private FishDAO dao;
 
     @BeforeEach
-    void setUp(){
-        List<Fish> fishList=List.of(
-                new Fish("Bass","Micropterus",12.0,"insects algae",List.of("Lake","River"),"Least Concern","001-00-0001"),
-                new Fish("Snook","Centropomus",20.0,"shrimp small fish",List.of("Estuary","Mangrove"),"Near Threatened","002-00-0002")
-        );
-        manager=new FishManager(fishList);
+    void setUp() {
+        dao = new FishDAO();
+        dao.connect("");   // Force mock (in-memory) mode
+        dao.clearAll();
+
+        dao.addFish(new Fish("Bass", "Micropterus", 12.0,
+                "insects algae", List.of("Lake", "River"),
+                "Least Concern", "001-00-0001"));
+        dao.addFish(new Fish("Snook", "Centropomus", 20.0,
+                "shrimp small fish", List.of("Estuary", "Mangrove"),
+                "Near Threatened", "002-00-0002"));
+
+        manager = new FishManager(dao);
+        RandomFunFact.resetForTesting();
         RandomFunFact.initialize(manager);
     }
 
-    // ----  Basic Functionality ----
+    // ---- Basic Functionality ----
     @Test
-    void testGetRandomFactReturnsNonNullAndNotEmpty(){
-        String fact=RandomFunFact.getRandomFact();
-        assertNotNull(fact,"Random fun fact should not be null");
-        assertFalse(fact.isBlank(),"Random fun fact should not be blank or empty");
+    void testGetRandomFactReturnsNonNullAndNotEmpty() {
+        String fact = RandomFunFact.getRandomFact();
+        assertNotNull(fact, "Random fun fact should not be null");
+        assertFalse(fact.isBlank(), "Random fun fact should not be blank or empty");
     }
 
-    // ----  Uniqueness per Cycle ----
+    // ---- Uniqueness per Cycle ----
     @Test
-    void testNoDuplicateFactsInSingleCycle(){
-        int totalFacts=RandomFunFact.getTotalFactCount();
-        Set<String> seenFacts=new HashSet<>();
-        for(int i=0;i<totalFacts;i++){
-            String fact=RandomFunFact.getRandomFact();
-            assertTrue(seenFacts.add(fact),"Duplicate fact detected during a single cycle: "+fact);
+    void testNoDuplicateFactsInSingleCycle() {
+        int totalFacts = RandomFunFact.getTotalFactCount();
+        Set<String> seen = new HashSet<>();
+        for (int i = 0; i < totalFacts; i++) {
+            String fact = RandomFunFact.getRandomFact();
+            // Strip out the random manager context so uniqueness only compares base fact
+            String baseFact = fact.split("\\(On average")[0].trim();
+            assertTrue(seen.add(baseFact),
+                    "Duplicate base fact detected in a single cycle: " + baseFact);
         }
     }
 
-    // ----  Reshuffling Behavior ----
+    // ---- Reshuffling Behavior ----
     @Test
-    void testReshufflesAfterAllFactsShown(){
-        int totalFacts=RandomFunFact.getTotalFactCount();
-        for(int i=0;i<totalFacts;i++){
-            assertNotNull(RandomFunFact.getRandomFact(),"Fact should exist during first cycle");
+    void testReshufflesAfterAllFactsShown() {
+        int totalFacts = RandomFunFact.getTotalFactCount();
+        for (int i = 0; i < totalFacts; i++) {
+            assertNotNull(RandomFunFact.getRandomFact(),
+                    "Fact should exist during initial cycle");
         }
-        String reshuffledFact=RandomFunFact.getRandomFact();
-        assertNotNull(reshuffledFact,"Fact after reshuffle should not be null");
-        assertFalse(reshuffledFact.isBlank(),"Fact after reshuffle should not be blank");
+        // Trigger reshuffle
+        String reshuffledFact = RandomFunFact.getRandomFact();
+        assertNotNull(reshuffledFact, "Fact after reshuffle should not be null");
+        assertFalse(reshuffledFact.isBlank(), "Fact after reshuffle should not be blank");
+        assertEquals(1, RandomFunFact.getCurrentIndex(),
+                "After reshuffle, currentIndex should reset to 1 after new fact retrieval");
     }
 
-    // ----  Randomness Validation ----
+    // ---- Randomness Validation ----
     @Test
-    void testRandomnessVariety(){
-        String firstFact=RandomFunFact.getRandomFact();
-        boolean variationFound=false;
-        for(int i=0;i<10;i++){
-            if(!RandomFunFact.getRandomFact().equals(firstFact)){
-                variationFound=true;
+    void testRandomnessVariety() {
+        String first = RandomFunFact.getRandomFact();
+        boolean varied = false;
+        for (int i = 0; i < 10; i++) {
+            if (!RandomFunFact.getRandomFact().equals(first)) {
+                varied = true;
                 break;
             }
         }
-        assertTrue(variationFound,"Expected variation in random facts after multiple calls");
+        assertTrue(varied, "Expected variety in random facts after multiple calls");
     }
 
-    // ----  Integration: Average Habitats from FishManager ----
+    // ---- Integration with FishManager (Average Habitats) ----
     @Test
-    void testIntegrationWithFishManagerHabitats(){
-        double avg=manager.calculateAverageHabitatsPerFish();
-        assertEquals(2.0,avg,0.01,"Average habitats per fish should be 2.0");
+    void testIntegrationWithFishManagerHabitats() {
+        double avg = manager.calculateAverageHabitatsPerFish();
+        assertEquals(2.0, avg, 0.01, "Average habitats per fish should be 2.0");
     }
 
-    // ----  Integration: Top Diversity Result ----
+    // ---- Integration with FishManager Contextual Fact ----
     @Test
-    void testIntegrationWithFishManagerDiversity(){
-        String top=manager.getTopDiversityFish();
-        assertTrue(top.contains("Snook"),"Snook should be top diversity fish");
-        assertTrue(top.contains("score"),"Output should include diversity score");
+    void testContextualFactMayIncludeAverageHabitats() {
+        boolean foundContext = false;
+        for (int i = 0; i < 100; i++) { // 100 tries should catch the 20% chance at least once
+            String fact = RandomFunFact.getRandomFact();
+            if (fact.contains("habitats per fish")) {
+                foundContext = true;
+                assertTrue(fact.contains("("), "Contextual fact should append in parentheses");
+                break;
+            }
+        }
+        assertTrue(foundContext, "At least one contextual fact with average habitats should eventually appear");
     }
 
-    // ----  Robustness Over Time ----
+    // ---- Integration with FishManager (Diversity) ----
     @Test
-    void testRobustnessAcrossManyCalls(){
-        for(int i=0;i<200;i++){
-            String fact=RandomFunFact.getRandomFact();
-            assertNotNull(fact,"Fact should not be null on iteration "+i);
-            assertFalse(fact.isBlank(),"Fact should not be blank");
+    void testIntegrationWithFishManagerDiversity() {
+        String top = manager.getTopDiversityFish();
+        assertTrue(top.contains("Snook"), "Snook should be the top diversity fish");
+        assertTrue(top.contains("score"), "Output should include diversity score");
+    }
+
+    // ---- Robustness over Time ----
+    @Test
+    void testRobustnessAcrossManyCalls() {
+        for (int i = 0; i < 200; i++) {
+            String fact = RandomFunFact.getRandomFact();
+            assertNotNull(fact, "Fact should never be null on iteration " + i);
+            assertFalse(fact.isBlank(), "Fact should never be blank");
         }
     }
 
-    // ----  Safe Reinitialization ----
+    // ---- Safe Re-Initialization ----
     @Test
-    void testMultipleInitializationCallsSafe(){
-        assertDoesNotThrow(()->{
+    void testMultipleInitializationCallsSafe() {
+        assertDoesNotThrow(() -> {
             RandomFunFact.initialize(manager);
             RandomFunFact.initialize(manager);
-        },"Reinitializing RandomFunFact should not cause errors");
+        }, "Reinitializing RandomFunFact should not cause errors");
     }
 
-    // ----  Edge Case: Null Manager Handling ----
+    // ---- Edge Case: Null Manager ----
     @Test
-    void testInitializeWithNullManagerHandled(){
-        assertDoesNotThrow(()->RandomFunFact.initialize(null),"Initializing RandomFunFact with null manager should not crash");
+    void testInitializeWithNullManagerHandled() {
+        assertDoesNotThrow(() -> RandomFunFact.initialize(null),
+                "Initializing with null FishManager should not crash");
+        RandomFunFact.resetForTesting();
+        RandomFunFact.initialize(null);
+        String fact = RandomFunFact.getRandomFact();
+        assertNotNull(fact, "Random fact should still return with null manager");
+    }
+
+    // ---- Internal State ----
+    @Test
+    void testGetTotalFactCountAndCurrentIndex() {
+        int total = RandomFunFact.getTotalFactCount();
+        assertTrue(total >= 10, "Should have a reasonable number of stored facts");
+        RandomFunFact.resetForTesting();
+        assertEquals(0, RandomFunFact.getCurrentIndex(),
+                "Reset should clear index to zero");
     }
 }
