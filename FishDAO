@@ -8,44 +8,53 @@ import java.util.List;
  *
  * Provides data access operations for Fish objects.
  * Supports both mock mode (in-memory list) for testing
- * and JDBC mode for future database integration.
+ * and JDBC mode for database integration using SQLite.
  *
  * All CRUD methods return boolean or Fish objects for
  * easier verification and unit testing.
+ *
+ * This version is updated for Phase 4 of the Data Management System (DMS)
+ * project, adding SQLite database integration and a custom
+ * mathematical feature to calculate average fish size.
  */
-public class FishDAO{
+public class FishDAO {
+
     /** In-memory mock storage (used when not connected to a database). */
-    private final List<Fish> mockFishList=new ArrayList<>();
+    private final List<Fish> mockFishList = new ArrayList<>();
 
     /** JDBC connection object for database operations. */
-    private Connection connection=null;
+    private Connection connection = null;
 
     /** Flag indicating whether the system is connected to the database. */
-    private boolean useDatabase=false;
-
-    /** Database configuration details (modify as needed). */
-    private static final String DB_URL="jdbc:mysql://localhost:3306/fishdb";
-    private static final String DB_USER="root";
-    private static final String DB_PASSWORD="password";
+    private boolean useDatabase = false;
 
     /** Default constructor for FishDAO. */
-    public FishDAO(){}
+    public FishDAO() {}
 
     /**
-     * Attempts to connect to the database.
+     * Attempts to connect to a SQLite database file.
+     * The user must supply a valid file path to the database.
      *
+     * @param dbPath path to the SQLite database file
      * @return true if the connection was successful, false otherwise
      */
-    public boolean connect(){
-        try{
-            if(!useDatabase){
-                connection=DriverManager.getConnection(DB_URL,DB_USER,DB_PASSWORD);
-                useDatabase=true;
-                System.out.println("Connected to database successfully.");
+    public boolean connect(String dbPath){
+        try {
+            if (dbPath == null || dbPath.isEmpty()) {
+                useDatabase = false;
+                return false;
             }
+
+            String url = "jdbc:sqlite:" + dbPath;
+            connection = DriverManager.getConnection(url);
+            useDatabase = true;
+            System.out.println("✔ Connected to SQLite database successfully.");
             return true;
-        }catch(SQLException e){
-            System.out.println("Error connecting to database: "+e.getMessage());
+        } catch (SQLException e) {
+            System.out.println("⚠ Failed to connect to database: " + e.getMessage());
+            System.out.println("➡ Switching to mock (local list) mode instead.");
+            useDatabase = false;
+            connection = null;
             return false;
         }
     }
@@ -56,44 +65,52 @@ public class FishDAO{
      * @return true if successfully disconnected, false otherwise
      */
     public boolean disconnect(){
-        if(useDatabase&&connection!=null){
-            try{
+        try {
+            if (useDatabase && connection != null) {
                 connection.close();
-                useDatabase=false;
-                System.out.println("Database connection closed.");
-                return true;
-            }catch(SQLException e){
-                System.out.println("Error closing database: "+e.getMessage());
+                System.out.println("⚠ Database connection closed.");
+            } else {
+                System.out.println("Mock mode active — nothing to disconnect.");
             }
+        } catch (SQLException e) {
+            System.out.println("⚠ Error closing database: " + e.getMessage());
+            return false;
+        } finally {
+            useDatabase = false;
+            connection = null;
         }
-        return false;
+        return true;
     }
 
     /**
      * Adds a new Fish record.
+     * Validates data before inserting to prevent crashes or invalid entries.
      *
      * @param fish the Fish object to add
      * @return true if successfully added, false otherwise
      */
     public boolean addFish(Fish fish){
-        if(fish==null)return false;
-        if(useDatabase){
-            String sql="INSERT INTO fish (common_name,scientific_name,average_size,diet,habitats,conservation_status,tag) VALUES (?,?,?,?,?,?,?)";
-            try(PreparedStatement stmt=connection.prepareStatement(sql)){
-                stmt.setString(1,fish.getCommonName());
-                stmt.setString(2,fish.getScientificName());
-                stmt.setDouble(3,fish.getAverageSize());
-                stmt.setString(4,fish.getDiet());
-                stmt.setString(5,String.join(",",fish.getHabitats()));
-                stmt.setString(6,fish.getConservationStatus());
-                stmt.setString(7,fish.getTag());
-                int rows=stmt.executeUpdate();
-                return rows>0;
-            }catch(SQLException e){
-                System.out.println("Error adding fish to database: "+e.getMessage());
+        if (fish == null) return false;
+        if (!validateFish(fish)) return false;
+
+        if (useDatabase) {
+            String sql = "INSERT INTO fish_records (common_name, scientific_name, average_size, measurement_unit, diet, habitats, conservation_status, tag) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+            try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+                stmt.setString(1, fish.getCommonName());
+                stmt.setString(2, fish.getScientificName());
+                stmt.setDouble(3, fish.getAverageSize());
+                stmt.setString(4, fish.getMeasurementUnit());
+                stmt.setString(5, fish.getDiet());
+                stmt.setString(6, String.join(",", fish.getHabitats()));
+                stmt.setString(7, fish.getConservationStatus());
+                stmt.setString(8, fish.getTag());
+                int rows = stmt.executeUpdate();
+                return rows > 0;
+            } catch (SQLException e) {
+                System.out.println("Error adding fish to database: " + e.getMessage());
                 return false;
             }
-        }else{
+        } else {
             mockFishList.add(fish);
             return true;
         }
@@ -101,94 +118,107 @@ public class FishDAO{
 
     /**
      * Retrieves all Fish records from the database or mock list.
-     *
      * @return a list of all Fish objects
      */
     public List<Fish> getAllFish(){
-        if(useDatabase){
-            List<Fish> fishList=new ArrayList<>();
-            String sql="SELECT * FROM fish";
-            try(Statement stmt=connection.createStatement();ResultSet rs=stmt.executeQuery(sql)){
-                while(rs.next()){
-                    Fish fish=new Fish(
+        if (useDatabase) {
+            List<Fish> fishList = new ArrayList<>();
+            String sql = "SELECT * FROM fish_records";
+            try (Statement stmt = connection.createStatement(); ResultSet rs = stmt.executeQuery(sql)){
+                while (rs.next()) {
+                    Fish fish = new Fish(
                             rs.getString("common_name"),
                             rs.getString("scientific_name"),
                             rs.getDouble("average_size"),
                             rs.getString("diet"),
                             Arrays.asList(rs.getString("habitats").split(",")),
                             rs.getString("conservation_status"),
-                            rs.getString("tag"));
+                            rs.getString("tag")
+                    );
+                    fish.setMeasurementUnit(rs.getString("measurement_unit"));
                     fishList.add(fish);
                 }
-            }catch(SQLException e){
-                System.out.println("Error reading from database: "+e.getMessage());
+            } catch (SQLException e) {
+                System.out.println("Error reading from database: " + e.getMessage());
             }
             return fishList;
-        }else{
+        } else {
             return new ArrayList<>(mockFishList);
         }
     }
 
     /**
      * Finds a Fish by its unique tag.
-     *
+     * @param tag the tag of the Fish
+     * @return the matching Fish object, or null if not found
+     */
+    /**
+     * Finds a Fish by its unique tag.
      * @param tag the tag of the Fish
      * @return the matching Fish object, or null if not found
      */
     public Fish findFishByTag(String tag){
-        if(tag==null||tag.isEmpty())return null;
-        if(useDatabase){
-            String sql="SELECT * FROM fish WHERE tag=?";
-            try(PreparedStatement stmt=connection.prepareStatement(sql)){
-                stmt.setString(1,tag);
-                ResultSet rs=stmt.executeQuery();
-                if(rs.next()){
-                    return new Fish(
+        if (tag == null || tag.isEmpty()) return null;
+        if (useDatabase) {
+            String sql = "SELECT * FROM fish_records WHERE tag = ?";
+            try (PreparedStatement stmt = connection.prepareStatement(sql)){
+                stmt.setString(1, tag);
+                ResultSet rs = stmt.executeQuery();
+                if (rs.next()) {
+                    Fish fish = new Fish(
                             rs.getString("common_name"),
                             rs.getString("scientific_name"),
                             rs.getDouble("average_size"),
                             rs.getString("diet"),
                             Arrays.asList(rs.getString("habitats").split(",")),
                             rs.getString("conservation_status"),
-                            rs.getString("tag"));
+                            rs.getString("tag")
+                    );
+                    fish.setMeasurementUnit(rs.getString("measurement_unit"));
+                    return fish;
                 }
-            }catch(SQLException e){
-                System.out.println("Error finding fish: "+e.getMessage());
+            } catch (SQLException e) {
+                System.out.println("Error finding fish: " + e.getMessage());
             }
             return null;
-        }else{
-            return mockFishList.stream().filter(f->f.getTag().equals(tag)).findFirst().orElse(null);
+        } else {
+            return mockFishList.stream()
+                    .filter(f -> f.getTag().equals(tag))
+                    .findFirst()
+                    .orElse(null);
         }
     }
 
     /**
      * Updates an existing Fish record.
-     *
      * @param updatedFish the Fish object with updated information
      * @return true if updated successfully, false otherwise
      */
     public boolean updateFish(Fish updatedFish){
-        if(updatedFish==null)return false;
-        if(useDatabase){
-            String sql="UPDATE fish SET common_name=?,scientific_name=?,average_size=?,diet=?,habitats=?,conservation_status=? WHERE tag=?";
-            try(PreparedStatement stmt=connection.prepareStatement(sql)){
-                stmt.setString(1,updatedFish.getCommonName());
-                stmt.setString(2,updatedFish.getScientificName());
-                stmt.setDouble(3,updatedFish.getAverageSize());
-                stmt.setString(4,updatedFish.getDiet());
-                stmt.setString(5,String.join(",",updatedFish.getHabitats()));
-                stmt.setString(6,updatedFish.getConservationStatus());
-                stmt.setString(7,updatedFish.getTag());
-                int rows=stmt.executeUpdate();
-                return rows>0;
-            }catch(SQLException e){
-                System.out.println("Error updating fish: "+e.getMessage());
+        if (updatedFish == null) return false;
+        if (!validateFish(updatedFish)) return false;
+
+        if (useDatabase){
+            String sql = "UPDATE fish_records SET common_name = ?, scientific_name = ?, average_size = ?, measurement_unit = ?, diet = ?, habitats = ?, conservation_status = ? WHERE tag = ?";
+            try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+                stmt.setString(1, updatedFish.getCommonName());
+                stmt.setString(2, updatedFish.getScientificName());
+                stmt.setDouble(3, updatedFish.getAverageSize());
+                stmt.setString(4, updatedFish.getMeasurementUnit());
+                stmt.setString(5, updatedFish.getDiet());
+                stmt.setString(6, String.join(",", updatedFish.getHabitats()));
+                stmt.setString(7, updatedFish.getConservationStatus());
+                stmt.setString(8, updatedFish.getTag());
+                int rows = stmt.executeUpdate();
+                return rows > 0;
+            } catch (SQLException e) {
+                System.out.println("Error updating fish: " + e.getMessage());
                 return false;
             }
-        }else{
-            for(int i=0;i<mockFishList.size();i++){
-                if(mockFishList.get(i).getTag().equals(updatedFish.getTag())){
-                    mockFishList.set(i,updatedFish);
+        } else {
+            for (int i = 0; i < mockFishList.size(); i++) {
+                if (mockFishList.get(i).getTag().equals(updatedFish.getTag())){
+                    mockFishList.set(i, updatedFish);
                     return true;
                 }
             }
@@ -198,45 +228,92 @@ public class FishDAO{
 
     /**
      * Removes a Fish record by tag.
-     *
      * @param tag the tag of the Fish to remove
      * @return true if successfully removed, false otherwise
      */
     public boolean removeFishByTag(String tag){
-        if(tag==null||tag.isEmpty())return false;
-        if(useDatabase){
-            String sql="DELETE FROM fish WHERE tag=?";
-            try(PreparedStatement stmt=connection.prepareStatement(sql)){
-                stmt.setString(1,tag);
-                int rows=stmt.executeUpdate();
-                return rows>0;
-            }catch(SQLException e){
-                System.out.println("Error deleting fish: "+e.getMessage());
+        if (tag == null || tag.isEmpty()) return false;
+        if (useDatabase) {
+            String sql = "DELETE FROM fish_records WHERE tag = ?";
+            try (PreparedStatement stmt = connection.prepareStatement(sql)){
+                stmt.setString(1, tag);
+                int rows = stmt.executeUpdate();
+                return rows > 0;
+            } catch (SQLException e) {
+                System.out.println("Error deleting fish: " + e.getMessage());
                 return false;
             }
-        }else{
-            return mockFishList.removeIf(f->f.getTag().equals(tag));
+        } else {
+            return mockFishList.removeIf(f -> f.getTag().equals(tag));
         }
+    }
+
+    /**
+     * Calculates the average fish size across all records.
+     * This is the project's required custom feature.
+     * @return the average size, or 0 if no records exist
+     */
+    public double calculateAverageFishSize(){
+        if (!useDatabase) {
+            return mockFishList.stream().mapToDouble(Fish::getAverageSize).average().orElse(0);
+        }
+        String sql = "SELECT AVG(average_size) AS avg_size FROM fish_records";
+        try (Statement stmt = connection.createStatement(); ResultSet rs = stmt.executeQuery(sql)){
+            if (rs.next()) {
+                return rs.getDouble("avg_size");
+            }
+        } catch (SQLException e) {
+            System.out.println("Error calculating average size: " + e.getMessage());
+        }
+        return 0;
     }
 
     /**
      * Clears all Fish records from the mock list or database.
      * Used primarily for testing or resetting the dataset.
-     *
      * @return true if cleared successfully, false otherwise
      */
     public boolean clearAll(){
-        if(useDatabase){
-            try(Statement stmt=connection.createStatement()){
-                stmt.executeUpdate("DELETE FROM fish");
+        if (useDatabase){
+            try (Statement stmt = connection.createStatement()){
+                stmt.executeUpdate("DELETE FROM fish_records");
                 return true;
-            }catch(SQLException e){
-                System.out.println("Error clearing database: "+e.getMessage());
+            } catch (SQLException e) {
+                System.out.println("Error clearing database: " + e.getMessage());
                 return false;
             }
-        }else{
+        } else {
             mockFishList.clear();
             return true;
         }
     }
+
+    /**
+     * Validates that a Fish object has proper data before inserting or updating.
+     * @param fish the Fish object to validate
+     * @return true if valid, false otherwise
+     */
+    private boolean validateFish(Fish fish){
+        if (fish.getCommonName() == null || fish.getCommonName().isEmpty()){
+            System.out.println("Validation Error: Common name cannot be empty.");
+            return false;
+        }
+        if (fish.getScientificName() == null || fish.getScientificName().isEmpty()){
+            System.out.println("Validation Error: Scientific name cannot be empty.");
+            return false;
+        }
+        if (fish.getAverageSize() <= 0) {
+            System.out.println("Validation Error: Average size must be greater than 0.");
+            return false;
+        }
+        if (fish.getTag() == null || fish.getTag().isEmpty()) {
+            System.out.println("Validation Error: Tag cannot be empty.");
+            return false;
+        }
+        return true;
+    }
+    public boolean isUsingDatabase() {
+        return useDatabase;
+    }
 }
+
