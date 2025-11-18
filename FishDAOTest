@@ -1,15 +1,17 @@
 /**
- * FishDAOTest.java (Phase 4 – Final, Fixed)
+ * FishDAOTest.java (Phase 4 – Final)
  *
  * Verifies CRUD and analytical operations across FishDAO and FishManager.
- * Covers mock (in-memory) behavior since no SQLite file is needed.
- * Confirms all methods handle duplicates, missing data, and edge cases safely.
+ * Uses mock (in-memory) behavior so no SQLite file is required.
+ * Confirms that methods handle duplicates, missing data, and edge cases safely.
  */
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+
 import java.io.File;
 import java.util.List;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 public class FishDAOTest {
@@ -98,7 +100,8 @@ public class FishDAOTest {
         original.setAverageSize(22.5);
         original.setDiet("shrimp, anchovies");
 
-        boolean updated = fishDAO.updateFish(original);
+        // IMPORTANT: pass the old tag as second argument
+        boolean updated = fishDAO.updateFish(original, "003-03-0003");
         assertTrue(updated, "updateFish() should return true for successful updates");
 
         Fish updatedFish = fishDAO.findFishByTag("003-03-0003");
@@ -159,7 +162,7 @@ public class FishDAOTest {
                 "005-05-0005"
         ));
 
-        // ✅ Now works because FishManager.getFishList() reads from DAO
+        // Now works because FishManager.getFishList() reads from DAO
         double avg = manager.calculateAverageHabitatsPerFish();
         assertEquals(2.5, avg, 0.1, "Average habitats per fish should be correctly calculated");
     }
@@ -190,7 +193,7 @@ public class FishDAOTest {
 
         assertTrue(add1 && add2, "Both fish should be added successfully even if duplicate tags exist");
         assertEquals(2, fishDAO.getAllFish().size(),
-                "Duplicate tags allowed but handled safely");
+                "Duplicate tags are allowed in mock mode and should be handled safely");
     }
 
     // ---- Custom action edge case: empty list ----
