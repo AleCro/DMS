@@ -13,8 +13,50 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Scanner;
 
+/**
+ * Entry point for the Florida Native Fish Data Management System (DMS)
+ * console application.
+ *
+ * <p>Purpose:</p>
+ * <p>
+ * This class is responsible for starting the application, prompting the user
+ * for an optional SQLite database connection, and then delegating control
+ * to the text-based {@link UI} menu layer.
+ * </p>
+ *
+ * <p>Primary responsibilities:</p>
+ * <ul>
+ *     <li>Ask the user whether they want to connect to a SQLite database or run in mock mode.</li>
+ *     <li>Validate the database path using defensive checks and exceptions.</li>
+ *     <li>Initialize shared components such as {@link FishDAO} and {@link FishManager}.</li>
+ *     <li>Pass these components into the {@link UI} class and show the main menu.</li>
+ *     <li>Cleanly disconnect from the database (if connected) before exiting.</li>
+ * </ul>
+ *
+ * <p>Typical usage:</p>
+ * <pre>{@code
+ * // Run from the command line:
+ * //   java FishApp
+ * }</pre>
+ */
 public class FishApp {
 
+    /**
+     * Application entry point.
+     *
+     * <p>
+     * This method:
+     * </p>
+     * <ul>
+     *     <li>Prompts the user to decide whether to connect to a SQLite database.</li>
+     *     <li>Allows repeated attempts to enter a valid database path, or cancellation.</li>
+     *     <li>Initializes {@link FishDAO} and {@link FishManager}.</li>
+     *     <li>Creates the {@link UI} instance and displays the main menu loop.</li>
+     *     <li>Disconnects from the database and terminates the program.</li>
+     * </ul>
+     *
+     * @param args command-line arguments (not used in this implementation)
+     */
     public static void main(String[] args) {
         Scanner scanner = new Scanner(System.in);
         FishDAO dao = new FishDAO();
@@ -32,42 +74,42 @@ public class FishApp {
                 System.out.println("Please type 'yes' or 'no'.");
             }
         }
-        if (answer.equals("yes")){
+        if (answer.equals("yes")) {
             while (true) {
                 System.out.print("\nEnter SQLite database path (e.g., C:\\Users\\alex\\Desktop\\florida_fish.db)\n" +
                         "Or press ~ to cancel DB connection: ");
                 String dbPath = scanner.nextLine().trim();
 
                 // If user cancels
-                if(dbPath.equals("~")){
+                if (dbPath.equals("~")) {
                     System.out.println("Skipping database connection. Running in local mode.");
                     dao.connect(""); // mock
                     break;
                 }
-                try{
+                try {
                     validateDbPath(dbPath);
-                    connected=dao.connect(dbPath);
-                    if(connected){
+                    connected = dao.connect(dbPath);
+                    if (connected) {
                         System.out.println("✔ Connected to database successfully!");
                         break;
-                    }else{
+                    } else {
                         System.out.println("⚠ Could not connect. Try again, or press ~ to cancel.");
                     }
-                }catch(IllegalArgumentException e){
+                } catch (IllegalArgumentException e) {
                     System.out.println("Invalid: " + e.getMessage());
                     System.out.println("Try again, or press ~ to cancel.");
-                }catch(Exception e){
+                } catch (Exception e) {
                     System.out.println("⚠ Unexpected error: " + e.getMessage());
                     System.out.println("Try again, or press ~ to cancel.");
                 }
             }
-        }else{
+        } else {
             System.out.println("Running in local (in-memory) mode — changes will not be saved after exit.");
             dao.connect(""); // mock
         }
 
         // Use the correct fish list depending on connection mode
-        List<Fish> fishList = dao.isUsingDatabase() ? dao.getAllFish():new ArrayList<>();
+        List<Fish> fishList = dao.isUsingDatabase() ? dao.getAllFish() : new ArrayList<>();
 
         // Create a FishManager linked to the DAO
         FishManager fishManager = new FishManager(dao);
@@ -82,14 +124,29 @@ public class FishApp {
 
     /**
      * Validates the SQLite file path supplied by the user.
+     *
+     * <p>
+     * This method checks for common path issues before attempting a database
+     * connection, including:
+     * </p>
+     * <ul>
+     *     <li>Empty or blank paths.</li>
+     *     <li>Missing {@code .db} or {@code .sqlite} extension.</li>
+     *     <li>Non-existent files.</li>
+     *     <li>Paths that are not regular files.</li>
+     * </ul>
+     *
+     * @param path the candidate path to a SQLite database file
+     * @throws IllegalArgumentException if the path is empty, does not have a valid
+     *                                  extension, does not exist, or is not a file
      */
-    private static void validateDbPath(String path) throws IllegalArgumentException{
+    private static void validateDbPath(String path) throws IllegalArgumentException {
         if (path == null || path.isBlank()) {
             throw new IllegalArgumentException("Path cannot be empty.");
         }
         path = path.replace("\"", ""); // Remove quotes if copied from Explorer
 
-        if (!(path.endsWith(".db") || path.endsWith(".sqlite"))){
+        if (!(path.endsWith(".db") || path.endsWith(".sqlite"))) {
             throw new IllegalArgumentException("File must end with .db or .sqlite");
         }
         File file = new File(path);
@@ -101,3 +158,4 @@ public class FishApp {
         }
     }
 }
+
