@@ -3,15 +3,27 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * RandomFunFact.java
+ * Utility class that provides randomized educational facts about Florida fish.
  *
- * Provides random educational facts about Florida fish.
- * Can integrate with the FishManager class to include contextual data.
- * Designed to be fully testable and compatible with unit testing.
+ * <p>Purpose:</p>
+ * <p>
+ * {@code RandomFunFact} exposes a simple API for retrieving non-repeating
+ * fun facts, optionally enriched with contextual statistics from
+ * {@link FishManager}. Facts are shuffled to avoid immediate repetition,
+ * and the sequence resets automatically after all facts have been shown.
+ * </p>
+ *
+ * <p>Usage examples:</p>
+ * <ul>
+ *     <li>CLI mode: printing {@link #getRandomFact()} in a console menu.</li>
+ *     <li>GUI mode: displaying fun facts in a JavaFX text area or label.</li>
+ *     <li>Unit tests: verifying sequence behavior via {@link #resetForTesting()} and index accessors.</li>
+ * </ul>
  */
-public class RandomFunFact{
-    /** List of random facts about Florida fish. */
-    private static final String[] FUN_FACTS_ARRAY={
+public class RandomFunFact {
+
+    /** Static array of base fun facts about Florida fish and related topics. */
+    private static final String[] FUN_FACTS_ARRAY = {
             "The Largemouth Bass is Florida’s official freshwater fish.",
             "Snook can live in both saltwater and freshwater.",
             "Tarpons are known to leap 10 feet out of the water.",
@@ -34,83 +46,97 @@ public class RandomFunFact{
             "Healthy mangroves are essential for fish nursery habitats."
     };
 
-    /** Maintains shuffled list of facts to avoid repetition. */
-    private static List<String> shuffledFacts=new ArrayList<>();
+    /** Shuffled working list of fun facts to avoid immediate repetition. */
+    private static List<String> shuffledFacts = new ArrayList<>();
 
-    /** Index of the current fact being returned. */
-    private static int currentIndex=0;
+    /** Index of the next fact to be returned from {@link #shuffledFacts}. */
+    private static int currentIndex = 0;
 
-    /** Optional link to FishManager for contextual statistics. */
+    /** Optional link to {@link FishManager} for contextual statistics (for example, average habitats). */
     private static FishManager manager;
 
     /**
-     * Initializes the RandomFunFact class with an optional FishManager reference.
-     * If no manager is provided, the class still functions normally.
+     * Initializes the fun-fact provider with an optional {@link FishManager} reference.
      *
-     * @param fishManager an instance of FishManager or null
+     * <p>If a manager is supplied, some facts may be extended with real-time statistics
+     * such as the current average number of habitats per fish in the dataset.</p>
+     *
+     * @param fishManager an instance of {@code FishManager} used for context;
+     *                    may be {@code null} if contextual information is not needed
      */
-    public static void initialize(FishManager fishManager){
-        manager=fishManager;
+    public static void initialize(FishManager fishManager) {
+        manager = fishManager;
         reshuffleFacts();
     }
 
     /**
-     * Randomly shuffles the facts and resets the index.
-     * Called automatically when all facts have been displayed once.
+     * Randomly shuffles the base facts and resets the internal index.
+     * This method is invoked automatically when all facts have been served once.
      */
-    private static void reshuffleFacts(){
-        shuffledFacts=new ArrayList<>(List.of(FUN_FACTS_ARRAY));
+    private static void reshuffleFacts() {
+        shuffledFacts = new ArrayList<>(List.of(FUN_FACTS_ARRAY));
         Collections.shuffle(shuffledFacts);
-        currentIndex=0;
+        currentIndex = 0;
     }
 
     /**
-     * Returns a random fun fact. Once all facts have been shown, they are reshuffled.
-     * Occasionally includes context from FishManager, if available.
+     * Returns a randomized fun fact string.
      *
-     * @return a random fun fact string
+     * <p>Behavior details:</p>
+     * <ul>
+     *     <li>Facts are served from a shuffled list to avoid immediate repetition.</li>
+     *     <li>When all facts have been returned once, the list is reshuffled.</li>
+     *     <li>If a {@link FishManager} has been initialized, some facts will
+     *         occasionally include a brief statistic (for example, average habitats).</li>
+     * </ul>
+     *
+     * @return a non-null fun fact string, optionally augmented with contextual information
      */
-    public static String getRandomFact(){
+    public static String getRandomFact() {
         // If list is empty or all facts have been used, reshuffle
-        if(shuffledFacts.isEmpty()||currentIndex>=shuffledFacts.size()){
+        if (shuffledFacts.isEmpty() || currentIndex >= shuffledFacts.size()) {
             reshuffleFacts();
         }
 
         // Retrieve the next fact in the shuffled order
-        String fact=shuffledFacts.get(currentIndex++);
+        String fact = shuffledFacts.get(currentIndex++);
 
-        // Add contextual information from FishManager about average habitats
-        if(manager!=null&&Math.random()<0.2){
-            double avgHabitats=manager.calculateAverageHabitatsPerFish();
-            fact+=String.format(" (On average, %.1f habitats per fish in your database.)",avgHabitats);
+        // Optionally add contextual information from FishManager about average habitats
+        if (manager != null && Math.random() < 0.2) {
+            double avgHabitats = manager.calculateAverageHabitatsPerFish();
+            fact += String.format(" (On average, %.1f habitats per fish in your database.)", avgHabitats);
         }
         return fact;
     }
 
     /**
-     * Returns the total number of stored facts.
+     * Returns the total number of distinct fun facts available.
      *
-     * @return the number of available fun facts
+     * @return total count of base fun facts
      */
-    public static int getTotalFactCount(){
+    public static int getTotalFactCount() {
         return FUN_FACTS_ARRAY.length;
     }
 
     /**
-     * Returns the current index of the next fact in sequence.
+     * Returns the current index of the next fact in the shuffled sequence.
      *
-     * @return the index position of the current fact
+     * <p>This is primarily useful for testing or debugging the internal sequence state.</p>
+     *
+     * @return zero-based index of the next fact that will be returned
      */
-    public static int getCurrentIndex(){
+    public static int getCurrentIndex() {
         return currentIndex;
     }
 
     /**
      * Clears internal state for testing.
-     * The next call to getRandomFact() will trigger a reshuffle.
+     *
+     * <p>After calling this method, the next call to {@link #getRandomFact()}
+     * will trigger a reshuffle and start a fresh randomized sequence.</p>
      */
-    public static void resetForTesting(){
+    public static void resetForTesting() {
         shuffledFacts.clear();
-        currentIndex=0;
+        currentIndex = 0;
     }
 }
