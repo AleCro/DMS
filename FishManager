@@ -1,13 +1,35 @@
 import java.util.*;
 
 /**
- * FishManager.java
+ * Coordinates business logic for managing {@link Fish} records in the
+ * Florida Native Fish Data Management System (DMS).
  *
- * Manages fish records using both local in-memory storage and a database backend
- * through the FishDAO class. Automatically switches between database and local
- * modes based on connection status.
+ * <p>Purpose:</p>
+ * <p>
+ * {@code FishManager} sits between the user interface (CLI or GUI) and the
+ * persistence layer ({@link FishDAO}). It provides higher-level operations
+ * such as searching, updating, and calculating analytics on fish data.
+ * </p>
+ *
+ * <p>Primary responsibilities:</p>
+ * <ul>
+ *     <li>Use {@link FishDAO} for CRUD operations against either a SQLite database
+ *         or an in-memory mock list.</li>
+ *     <li>Offer convenience methods for updating fish by tag and calculating
+ *         aggregate metrics such as average size and habitat diversity.</li>
+ *     <li>Provide optional CLI helper methods for interactive workflows
+ *         (list, search, update, remove).</li>
+ * </ul>
+ *
+ * <p>Mode selection:</p>
+ * <ul>
+ *     <li>When the DAO is connected to a database, operations are performed
+ *         primarily through {@link FishDAO}.</li>
+ *     <li>When no database is connected, a local {@code fishList} acts as
+ *         a fallback store.</li>
+ * </ul>
  */
-public class FishManager{
+public class FishManager {
 
     /** Data Access Object handling both database and local operations. */
     private final FishDAO fishDAO;
@@ -19,36 +41,49 @@ public class FishManager{
     private final Scanner scanner;
 
     /**
-     * Constructs a FishManager using a provided FishDAO.
-     * @param dao the data access object for fish records
+     * Constructs a {@code FishManager} using a provided {@link FishDAO}.
+     *
+     * @param dao the data access object used to load, save, and update fish records
      */
-    public FishManager(FishDAO dao){
-        this.fishDAO=dao;
-        this.fishList=new ArrayList<>();
-        this.scanner=new Scanner(System.in);
+    public FishManager(FishDAO dao) {
+        this.fishDAO = dao;
+        this.fishList = new ArrayList<>();
+        this.scanner = new Scanner(System.in);
     }
 
     /**
-     * Checks if the FishManager is currently using the database.
+     * Indicates whether the manager is currently using a database-backed DAO.
      *
-     * @return true if database is connected, false if running in local mock mode
+     * @return {@code true} if the {@link FishDAO} is connected to a database;
+     *         {@code false} if running in local mock mode
      */
     public boolean isUsingDatabase() {
         return fishDAO.isUsingDatabase();
     }
 
     /**
-     * Updates a fish directly (used by FishManagerUI to persist field edits).
-     * @param fish the fish to update
-     * @return true if updated successfully
+     * Updates a fish directly using its current tag.
+     * <p>
+     * This method assumes that the tag stored inside the {@link Fish} object
+     * is not changing. If a tag change is needed, use
+     * {@link #updateFishByTag(String, String, String, Double, String, List, String, String)}
+     * instead.
+     * </p>
+     *
+     * @param fish the {@link Fish} instance with updated values
+     * @return {@code true} if the fish was found and updated; {@code false} otherwise
      */
     public boolean updateFish(Fish fish) {
         if (fish == null) return false;
+        String currentTag = fish.getTag();
+        if (currentTag == null || currentTag.isEmpty()) return false;
+
         if (fishDAO.isUsingDatabase()) {
-            return fishDAO.updateFish(fish);
+            // oldTag == current tag (no tag change through this path)
+            return fishDAO.updateFish(fish, currentTag);
         } else {
             for (int i = 0; i < fishList.size(); i++) {
-                if (fishList.get(i).getTag().equals(fish.getTag())) {
+                if (currentTag.equals(fishList.get(i).getTag())) {
                     fishList.set(i, fish);
                     return true;
                 }
@@ -58,12 +93,16 @@ public class FishManager{
     }
 
     /**
-     * Gets all fish, from database if available or from local list otherwise.
-     * Always prefers DAO (even in mock mode) to ensure consistency in tests.
+     * Retrieves all fish, preferring the DAO as the source of truth.
+     * <p>
+     * If the DAO returns a non-empty list (database or mock mode),
+     * that list is returned. Otherwise, the local {@code fishList}
+     * is used as a fallback.
+     * </p>
      *
-     * @return the current list of Fish objects
+     * @return the current list of {@link Fish} objects; never {@code null}
      */
-    public List<Fish> getFishList(){
+    public List<Fish> getFishList() {
         List<Fish> daoList = fishDAO.getAllFish();
         if (daoList != null && !daoList.isEmpty()) {
             return daoList;
@@ -73,56 +112,73 @@ public class FishManager{
 
     /**
      * Adds a new fish record.
+     * <p>
+     * This method attempts to add via {@link FishDAO} first (which works
+     * for both database and mock modes). If the DAO fails and the DAO
+     * is not using a database, it falls back to the local list.
+     * </p>
      *
-     * @param fish the Fish object to add
-     * @return true if successfully added, false otherwise
+     * @param fish the {@link Fish} object to add
+     * @return {@code true} if successfully added; {@code false} otherwise
      */
-    public boolean addFish(Fish fish){
-        if(fish==null)return false;
+    public boolean addFish(Fish fish) {
+        if (fish == null) return false;
         // Always attempt via DAO first — works for both real DB and mock mode
         boolean added = fishDAO.addFish(fish);
-        if(!added && !fishDAO.isUsingDatabase()){
+        if (!added && !fishDAO.isUsingDatabase()) {
             return fishList.add(fish);
         }
         return added;
     }
 
     /**
-     * Searches for a fish in the list or database by its tag.
+     * Searches for a fish by its tag using the DAO and local list as fallback.
      *
      * @param tag the tag to search for
-     * @return the Fish object if found, null otherwise
+     * @return the matching {@link Fish} if found; {@code null} otherwise
      */
-    public Fish findFishByTag(String tag){
+    public Fish findFishByTag(String tag) {
         Fish found = fishDAO.findFishByTag(tag);
-        if(found!=null)return found;
-        for(Fish f:fishList){
-            if(f.getTag().equals(tag))return f;
+        if (found != null) return found;
+        for (Fish f : fishList) {
+            if (f.getTag().equals(tag)) return f;
         }
         return null;
     }
 
     /**
-     * Updates an existing fish identified by its tag.
-     * Only valid or non-null values are applied.
+     * Updates an existing fish identified by its original tag.
+     * <p>
+     * Only non-null and valid values are applied. This method supports changing
+     * the tag itself via the {@code newTag} parameter.
+     * </p>
      *
-     * @param tag the tag identifying the fish to update
-     * @param newCommonName new common name (letters only)
-     * @param newScientificName new scientific name (letters only)
-     * @param newAverageSize new average size (must be > 0)
-     * @param newDiet new diet description
-     * @param newHabitats new habitat list
-     * @param newStatus new conservation status
-     * @param newTag new tag in format 000-00-0000
-     * @return true if the fish was found and updated, false otherwise
+     * @param tag               the original tag identifying the fish to update
+     * @param newCommonName     new common name (letters and spaces only), or {@code null} to leave unchanged
+     * @param newScientificName new scientific name (letters and spaces only), or {@code null} to leave unchanged
+     * @param newAverageSize    new average size (must be greater than 0), or {@code null} to leave unchanged
+     * @param newDiet           new diet description, or {@code null} to leave unchanged
+     * @param newHabitats       new habitat list, or {@code null} to leave unchanged
+     * @param newStatus         new conservation status, or {@code null} to leave unchanged
+     * @param newTag            new tag in format {@code 000-00-0000}, or {@code null} to leave unchanged
+     * @return {@code true} if the fish was found and updated; {@code false} otherwise
      */
-    public boolean updateFishByTag(String tag,String newCommonName,String newScientificName,
-                                   Double newAverageSize,String newDiet,List<String> newHabitats,
-                                   String newStatus,String newTag){
-        //  Always retrieve from DAO first (even mock mode)
+    public boolean updateFishByTag(String tag,
+                                   String newCommonName,
+                                   String newScientificName,
+                                   Double newAverageSize,
+                                   String newDiet,
+                                   List<String> newHabitats,
+                                   String newStatus,
+                                   String newTag) {
+
+        if (tag == null || tag.isEmpty()) return false;
+        String oldTag = tag;
+
+        // Always retrieve from DAO first (even mock mode)
         Fish existing = fishDAO.findFishByTag(tag);
         if (existing == null) {
-            // fallback to local list only if DAO has none
+            // Fallback to local list only if DAO has none
             for (Fish f : fishList) {
                 if (f.getTag().equals(tag)) {
                     existing = f;
@@ -130,38 +186,109 @@ public class FishManager{
                 }
             }
         }
-        if(existing == null) return false;
+        if (existing == null) return false;
 
-        // Apply updates safely before saving
-        if(newCommonName!=null&&newCommonName.matches("[a-zA-Z ]+"))existing.setCommonName(newCommonName);
-        if(newScientificName!=null&&newScientificName.matches("[a-zA-Z ]+"))existing.setScientificName(newScientificName);
-        if(newAverageSize!=null&&newAverageSize>0)existing.setAverageSize(newAverageSize);
-        if(newDiet!=null&&!newDiet.isEmpty())existing.setDiet(newDiet);
-        if(newHabitats!=null&&!newHabitats.isEmpty())existing.setHabitats(newHabitats);
-        if(newStatus!=null&&!newStatus.isEmpty())existing.setConservationStatus(newStatus);
-        if(newTag!=null&&newTag.matches("\\d{3}-\\d{2}-\\d{4}"))existing.setTag(newTag);
+        // Start from current values
+        String effectiveCommon         = existing.getCommonName();
+        String effectiveScientific     = existing.getScientificName();
+        double effectiveSize           = existing.getAverageSize();
+        String effectiveDiet           = existing.getDiet();
+        List<String> effectiveHabitats = existing.getHabitats();
+        String effectiveStatus         = existing.getConservationStatus();
+        String effectiveTag            = existing.getTag();
+        String effectiveUnit           = existing.getMeasurementUnit();
 
-        //  Always save through DAO (works in mock or real mode)
-        return fishDAO.updateFish(existing);
+        // Apply updates safely (respecting validation rules)
+        if (newCommonName != null && newCommonName.matches("[a-zA-Z ]+")) {
+            effectiveCommon = newCommonName;
+        }
+        if (newScientificName != null && newScientificName.matches("[a-zA-Z ]+")) {
+            effectiveScientific = newScientificName;
+        }
+        if (newAverageSize != null && newAverageSize > 0) {
+            effectiveSize = newAverageSize;
+        }
+        if (newDiet != null && !newDiet.isEmpty()) {
+            effectiveDiet = newDiet;
+        }
+        if (newHabitats != null && !newHabitats.isEmpty()) {
+            effectiveHabitats = newHabitats;
+        }
+        if (newStatus != null && !newStatus.isEmpty()) {
+            effectiveStatus = newStatus;
+        }
+        if (newTag != null && newTag.matches("\\d{3}-\\d{2}-\\d{4}")) {
+            effectiveTag = newTag;
+        }
+
+        if (effectiveHabitats == null) {
+            effectiveHabitats = List.of();
+        }
+
+        // Build a new Fish instance with updated values
+        Fish updatedFish = new Fish(
+                effectiveCommon,
+                effectiveScientific,
+                effectiveSize,
+                effectiveDiet,
+                effectiveHabitats,
+                effectiveStatus,
+                effectiveTag
+        );
+        updatedFish.setMeasurementUnit(effectiveUnit);
+
+        // ---------- PERSIST CHANGES ----------
+        if (fishDAO.isUsingDatabase()) {
+            // DB mode → let DAO handle the update
+            return fishDAO.updateFish(updatedFish, oldTag);
+        } else {
+            // MOCK MODE → manually rebuild the mock list via DAO helpers
+            List<Fish> current = fishDAO.getAllFish();
+            boolean replaced = false;
+            List<Fish> rebuilt = new ArrayList<>();
+
+            for (Fish f : current) {
+                if (!replaced && f.getTag().equals(oldTag)) {
+                    rebuilt.add(updatedFish);
+                    replaced = true;
+                } else {
+                    rebuilt.add(f);
+                }
+            }
+
+            if (!replaced) {
+                return false; // nothing with oldTag found
+            }
+
+            // Clear and re-add to mock storage
+            fishDAO.clearAll();
+            for (Fish f : rebuilt) {
+                fishDAO.addFish(f);
+            }
+            return true;
+        }
     }
 
     /**
-     * Removes a fish from the list or database by tag.
+     * Removes a fish by tag from both the DAO and local list (if present).
      *
      * @param tag the tag of the fish to remove
-     * @return true if the fish was removed, false otherwise
+     * @return {@code true} if at least one record was removed; {@code false} otherwise
      */
-    public boolean removeFishByTag(String tag){
-        //  Always attempt DAO removal first (works in mock too)
+    public boolean removeFishByTag(String tag) {
+        // Always attempt DAO removal first (works in mock too)
         boolean daoRemoved = fishDAO.removeFishByTag(tag);
-        boolean listRemoved = fishList.removeIf(f->f.getTag().equals(tag));
+        boolean listRemoved = fishList.removeIf(f -> f.getTag().equals(tag));
         return daoRemoved || listRemoved;
     }
 
     /**
      * Calculates the average number of habitats per fish.
+     * <p>
+     * If a fish has a {@code null} habitat list, it is treated as having zero habitats.
+     * </p>
      *
-     * @return the average number of habitats per fish, or 0.0 if no data
+     * @return the average number of habitats per fish; {@code 0.0} if no fish exist
      */
     public double calculateAverageHabitatsPerFish() {
         List<Fish> list = getFishList();
@@ -180,9 +307,15 @@ public class FishManager{
 
     /**
      * Identifies the fish with the highest ecological diversity.
-     * Diversity is calculated as (number of habitats × number of diet words).
+     * <p>
+     * Diversity is defined as:
+     * </p>
+     * <pre>
+     *     diversity score = (number of habitats) × (number of words in diet)
+     * </pre>
      *
-     * @return a string describing the most diverse fish or a message if no data
+     * @return a formatted description of the most diverse fish and its score,
+     *         or {@code "No fish data available."} if no records exist
      */
     public String getTopDiversityFish() {
         List<Fish> list = getFishList();
@@ -208,9 +341,9 @@ public class FishManager{
     }
 
     /**
-     * Calculates the average size of all fish.
+     * Calculates the average size of all fish in the current dataset.
      *
-     * @return the average size, or 0.0 if the list is empty
+     * @return the average size; {@code 0.0} if the list is empty
      */
     public double calculateAverageSize() {
         List<Fish> list = getFishList();
@@ -225,82 +358,83 @@ public class FishManager{
     }
 
     /**
-     * Finds duplicate tag numbers within the list or database results.
+     * Finds duplicate tag values within the current dataset.
      *
-     * @return a map of duplicate tags with their occurrence counts
+     * @return a map where each key is a duplicated tag and the value is
+     *         the number of times that tag appears (counts &gt;= 2)
      */
-    public Map<String,Integer> getDuplicateTags(){
-        List<Fish> list=getFishList();
-        Map<String,Integer> tagCounts=new HashMap<>();
-        for(Fish f:list){
-            tagCounts.put(f.getTag(),tagCounts.getOrDefault(f.getTag(),0)+1);
+    public Map<String, Integer> getDuplicateTags() {
+        List<Fish> list = getFishList();
+        Map<String, Integer> tagCounts = new HashMap<>();
+        for (Fish f : list) {
+            tagCounts.put(f.getTag(), tagCounts.getOrDefault(f.getTag(), 0) + 1);
         }
-        tagCounts.entrySet().removeIf(entry->entry.getValue()<2);
+        tagCounts.entrySet().removeIf(entry -> entry.getValue() < 2);
         return tagCounts;
     }
 
     /** Displays all fish currently stored in the list or database. */
-    private void listAllFish(){
-        List<Fish> list=getFishList();
-        if(list.isEmpty()){
+    private void listAllFish() {
+        List<Fish> list = getFishList();
+        if (list.isEmpty()) {
             System.out.println("No fish added yet.");
             return;
         }
         System.out.println("\n--- All Fish ---");
-        for(Fish fish:list){
+        for (Fish fish : list) {
             System.out.println(fish);
             System.out.println("---------------------");
         }
     }
 
     /** Searches for a fish by its tag and displays the result. */
-    private void searchFishByTag(){
+    private void searchFishByTag() {
         System.out.print("\nEnter tag to search (~ to go back): ");
-        String tag=scanner.nextLine();
-        if(tag.equals("~"))return;
-        Fish f=findFishByTag(tag);
-        if(f==null)System.out.println("Fish not found.");
-        else System.out.println("Found:\n"+f);
+        String tag = scanner.nextLine();
+        if (tag.equals("~")) return;
+        Fish f = findFishByTag(tag);
+        if (f == null) System.out.println("Fish not found.");
+        else System.out.println("Found:\n" + f);
     }
 
     /** Allows the user to interactively update a fish’s name or diet. */
-    private void interactiveUpdateFish(){
+    private void interactiveUpdateFish() {
         System.out.print("Enter tag to update (~ to cancel): ");
-        String tag=scanner.nextLine();
-        if(tag.equals("~"))return;
-        Fish f=findFishByTag(tag);
-        if(f==null){
+        String tag = scanner.nextLine();
+        if (tag.equals("~")) return;
+        Fish f = findFishByTag(tag);
+        if (f == null) {
             System.out.println("No fish found with that tag.");
             return;
         }
-        System.out.println("Updating fish: "+f.getCommonName());
+        System.out.println("Updating fish: " + f.getCommonName());
         System.out.print("Enter new common name (blank to skip): ");
-        String newCommon=scanner.nextLine().trim();
+        String newCommon = scanner.nextLine().trim();
         System.out.print("Enter new diet (blank to skip): ");
-        String newDiet=scanner.nextLine().trim();
+        String newDiet = scanner.nextLine().trim();
 
         updateFishByTag(tag,
-                newCommon.isEmpty()?null:newCommon,
-                null,null,
-                newDiet.isEmpty()?null:newDiet,
-                null,null,null);
+                newCommon.isEmpty() ? null : newCommon,
+                null, null,
+                newDiet.isEmpty() ? null : newDiet,
+                null, null, null);
         System.out.println("Fish updated successfully.");
     }
 
     /** Allows the user to remove a fish record interactively. */
-    private void interactiveRemoveFish(){
+    private void interactiveRemoveFish() {
         System.out.print("Enter tag to remove (~ to cancel): ");
-        String tag=scanner.nextLine();
-        if(tag.equals("~"))return;
-        boolean removed=removeFishByTag(tag);
-        System.out.println(removed?"Fish removed successfully.":"Fish not found.");
+        String tag = scanner.nextLine();
+        if (tag.equals("~")) return;
+        boolean removed = removeFishByTag(tag);
+        System.out.println(removed ? "Fish removed successfully." : "Fish not found.");
     }
 
     /** Displays a report of duplicate tags, if any exist. */
-    private void checkDuplicateTagsCLI(){
-        Map<String,Integer> dupes=getDuplicateTags();
+    private void checkDuplicateTagsCLI() {
+        Map<String, Integer> dupes = getDuplicateTags();
         System.out.println("\n--- Duplicate Tag Report ---");
-        if(dupes.isEmpty())System.out.println("No duplicate tags found.");
-        else dupes.forEach((tag,count)->System.out.println("Tag "+tag+" occurs "+count+" times."));
+        if (dupes.isEmpty()) System.out.println("No duplicate tags found.");
+        else dupes.forEach((tag, count) -> System.out.println("Tag " + tag + " occurs " + count + " times."));
     }
 }
