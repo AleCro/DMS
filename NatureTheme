@@ -1,38 +1,68 @@
 import javafx.geometry.Insets;
-import javafx.scene.control.*;
-import javafx.scene.layout.*;
+import javafx.scene.control.Alert;
+import javafx.scene.control.Button;
+import javafx.scene.control.DialogPane;
+import javafx.scene.control.Label;
+import javafx.scene.control.TableView;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Pane;
+import javafx.scene.layout.Region;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 
 /**
- * NatureTheme.java
  * Centralized visual theme for the Florida Native Fish Database Management System (DMS).
  *
- * Purpose:
+ * <p>Purpose:</p>
+ * <p>
  * This class provides a consistent visual identity for the DMS user interface.
  * It defines color schemes, font styles, and reusable methods for styling JavaFX components,
- * ensuring a cohesive and professional look across all tabs and dialogs.
+ * ensuring a cohesive and professional look across all windows, tabs, and dialogs.
+ * </p>
+ *
+ * <p>Role in the overall system:</p>
+ * <ul>
+ *     <li>Encapsulates UI styling logic so that layout classes (such as {@code FishAppGUI}
+ *         and {@code ManageFishLogicGUI}) can focus on behavior and data.</li>
+ *     <li>Makes it easy to apply the same color palette and font choices across the DMS.</li>
+ *     <li>Improves maintainability by centralizing theme changes in a single location.</li>
+ * </ul>
+ *
+ * <p>Typical usage example:</p>
+ * <pre>{@code
+ * Button saveButton = new Button("Save");
+ * NatureTheme.stylePrimary(saveButton);
+ *
+ * VBox root = new VBox();
+ * NatureTheme.applyBackground(root);
+ * }</pre>
  */
-public class NatureTheme{
+public class NatureTheme {
 
-    //COLOR PALETTE
+    // COLOR PALETTE
+
     /** Primary forest-green color used for headers and key buttons. */
     public static final String PRIMARY_COLOR = "#2E7D32";
-    /** Soft green accent color used for secondary buttons and highlights. */
-    public static final String ACCENT_COLOR  = "#81C784";
-    /** Very light green used for panel backgrounds. */
-    public static final String LIGHT_BG      = "#E8F5E9";
-    /** Deep forest tone for dark text elements. */
-    public static final String DARK_TEXT     = "#1B5E20";
-    /** Slightly darker shade used for button hover effects. */
-    public static final String BUTTON_HOVER  = "#388E3C";
 
-    //FONT DEFINITIONS
+    /** Soft green accent color used for secondary buttons and highlights. */
+    public static final String ACCENT_COLOR = "#81C784";
+
+    /** Very light green used for panel backgrounds. */
+    public static final String LIGHT_BG = "#E8F5E9";
+
+    /** Deep forest tone for dark text elements. */
+    public static final String DARK_TEXT = "#1B5E20";
+
+    /** Slightly darker shade used for button hover effects. */
+    public static final String BUTTON_HOVER = "#388E3C";
+
+    // FONT DEFINITIONS
 
     /**
      * Returns the default header font for section titles.
-     * @return Bold Verdana, size 20.
+     *
+     * @return a bold Verdana font, size 20
      */
     public static Font headerFont() {
         return Font.font("Verdana", FontWeight.BOLD, 20);
@@ -40,7 +70,8 @@ public class NatureTheme{
 
     /**
      * Returns the default body font for general labels and controls.
-     * @return Arial, size 14.
+     *
+     * @return an Arial font, size 14
      */
     public static Font bodyFont() {
         return Font.font("Arial", 14);
@@ -48,26 +79,32 @@ public class NatureTheme{
 
     /**
      * Returns the default smaller font for captions or tooltips.
-     * @return Arial, size 12.
+     *
+     * @return an Arial font, size 12
      */
     public static Font smallFont() {
         return Font.font("Arial", 12);
     }
 
-    //BUTTON STYLING
+    // BUTTON STYLING
+
     /**
      * Styles a button using the primary green color scheme.
-     * Applied to important actions like "Delete" or "Save".
-     * @param btn The button to style.
+     * <p>
+     * This style is typically applied to primary actions such as
+     * "Save", "Delete", or other high-importance operations.
+     * </p>
+     *
+     * @param btn the {@link Button} to style
      */
-    public static void stylePrimary(Button btn){
+    public static void stylePrimary(Button btn) {
         btn.setStyle("-fx-background-color: " + PRIMARY_COLOR + ";" +
                 "-fx-text-fill: white;" +
                 "-fx-font-weight: bold;" +
                 "-fx-background-radius: 8;" +
                 "-fx-cursor: hand;");
 
-        btn.setOnMouseEntered(e ->btn.setStyle("-fx-background-color: " + BUTTON_HOVER + ";" +
+        btn.setOnMouseEntered(e -> btn.setStyle("-fx-background-color: " + BUTTON_HOVER + ";" +
                 "-fx-text-fill: white;" +
                 "-fx-font-weight: bold;" +
                 "-fx-background-radius: 8;"));
@@ -77,10 +114,15 @@ public class NatureTheme{
                 "-fx-font-weight: bold;" +
                 "-fx-background-radius: 8;"));
     }
+
     /**
      * Styles a button using the secondary accent color scheme.
-     * Commonly used for actions such as "Refresh", "Edit", or "Select".
-     * @param btn The button to style.
+     * <p>
+     * This style is commonly used for supporting actions such as
+     * "Refresh", "Edit", or "Select".
+     * </p>
+     *
+     * @param btn the {@link Button} to style
      */
     public static void styleSecondary(Button btn) {
         btn.setStyle("-fx-background-color: " + ACCENT_COLOR + ";" +
@@ -100,99 +142,127 @@ public class NatureTheme{
                 "-fx-background-radius: 8;"));
     }
 
-    //LABEL AND TEXT STYLING
+    // LABEL AND TEXT STYLING
+
     /**
      * Styles a label for major section titles.
-     * @param label The label to apply the style to.
+     *
+     * @param label the {@link Label} to apply the header style to
      */
     public static void styleTitle(Label label) {
         label.setFont(headerFont());
         label.setTextFill(Color.web(DARK_TEXT));
     }
+
     /**
      * Styles a general label for standard body text.
-     * @param label The label to apply the style to.
+     *
+     * @param label the {@link Label} to apply the body style to
      */
     public static void styleLabel(Label label) {
         label.setFont(bodyFont());
         label.setTextFill(Color.web(DARK_TEXT));
     }
 
-    //TABLE STYLING
+    // TABLE STYLING
+
     /**
-     * Styles a TableView with consistent background, border, and selection colors.
-     * Ensures visual consistency across JavaFX versions.
-     * @param table The table to apply styling to.
+     * Styles a {@link TableView} with consistent background, border, and selection colors.
+     * <p>
+     * This method also configures the column resize policy in a way that is
+     * compatible with multiple JavaFX versions.
+     * </p>
+     *
+     * @param table the {@link TableView} to apply styling to
      */
     @SuppressWarnings("deprecation") // Hides warnings on older JavaFX versions
-    public static void styleTable(TableView<?> table){
-        table.setStyle("-fx-background-color: white;"+
-                "-fx-border-color: " + PRIMARY_COLOR+";"+
-                "-fx-border-width: 1;"+
-                "-fx-selection-bar: "+ ACCENT_COLOR+";"+
-                "-fx-selection-bar-non-focused:"+ACCENT_COLOR+";");
+    public static void styleTable(TableView<?> table) {
+        table.setStyle("-fx-background-color: white;" +
+                "-fx-border-color: " + PRIMARY_COLOR + ";" +
+                "-fx-border-width: 1;" +
+                "-fx-selection-bar: " + ACCENT_COLOR + ";" +
+                "-fx-selection-bar-non-focused:" + ACCENT_COLOR + ";");
 
-        //Compatibility handling for JavaFX 17+ and 21+
-        try{
+        // Compatibility handling for JavaFX 17+ and 21+
+        try {
             table.setColumnResizePolicy(
-                    (TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN !=null)
+                    (TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN != null)
                             ? TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN
                             : TableView.CONSTRAINED_RESIZE_POLICY
             );
-        }catch(NoSuchFieldError e){
+        } catch (NoSuchFieldError e) {
             table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         }
     }
 
-    //CARD AND PANEL STYLING
+    // CARD AND PANEL STYLING
+
     /**
      * Styles a container or card region with soft borders and padding.
-     * @param region The region (VBox, HBox, etc.) to style.
+     * <p>
+     * This method is intended for panels such as cards, content boxes, or
+     * other grouped UI sections.
+     * </p>
+     *
+     * @param region the {@link Region} (for example, {@link Pane}, {@link VBox}, or {@link HBox}) to style
      */
-    public static void styleCard(Region region){
-        region.setStyle("-fx-background-color: white;"+
-                "-fx-background-radius: 10;"+
-                "-fx-border-radius: 10;"+
-                "-fx-border-color: "+ACCENT_COLOR+";"+
+    public static void styleCard(Region region) {
+        region.setStyle("-fx-background-color: white;" +
+                "-fx-background-radius: 10;" +
+                "-fx-border-radius: 10;" +
+                "-fx-border-color: " + ACCENT_COLOR + ";" +
                 "-fx-border-width: 1;");
         if (region instanceof Pane pane) {
             pane.setPadding(new Insets(15));
         }
     }
 
-    //BACKGROUND AND LAYOUT
+    // BACKGROUND AND LAYOUT
+
     /**
      * Applies a consistent light gradient background to the main layout.
-     * @param region The layout region to apply the background to.
+     * <p>
+     * This is typically used on root containers such as the main
+     * {@code VBox}, {@code HBox}, or {@code StackPane} that hosts a scene.
+     * </p>
+     *
+     * @param region the layout {@link Region} to apply the background to
      */
-    public static void applyBackground(Region region){
+    public static void applyBackground(Region region) {
         region.setStyle("-fx-background-color: linear-gradient(to bottom, #F1F8E9, #C8E6C9);");
     }
 
-    //TOOLBAR STYLING
+    // TOOLBAR STYLING
+
     /**
-     * Styles a horizontal toolbar with light green background and rounded edges.
-     * @param bar The HBox toolbar to style.
+     * Styles a horizontal toolbar with a light green background and rounded edges.
+     *
+     * @param bar the {@link HBox} toolbar container to style
      */
-    public static void styleToolbar(HBox bar){
+    public static void styleToolbar(HBox bar) {
         bar.setSpacing(10);
         bar.setPadding(new Insets(10));
         bar.setStyle("-fx-background-color: #A5D6A7;" +
                 "-fx-background-radius: 8;");
     }
 
-    //ALERT DIALOG STYLING
+    // ALERT DIALOG STYLING
+
     /**
-     * Styles a JavaFX Alert dialog to match the NatureTheme palette.
-     * Applies background color and consistent header tone.
-     * @param alert The alert to style.
+     * Styles a JavaFX {@link Alert} dialog to match the {@code NatureTheme} palette.
+     * <p>
+     * This method applies a light background to the content area and a primary
+     * green tone to the header area (if present).
+     * </p>
+     *
+     * @param alert the {@link Alert} instance to style
      */
-    public static void styleAlert(Alert alert){
-        DialogPane pane=alert.getDialogPane();
+    public static void styleAlert(Alert alert) {
+        DialogPane pane = alert.getDialogPane();
         pane.setStyle("-fx-background-color: #F1F8E9;");
-        var header=pane.lookup(".header-panel");
-        if (header !=null){
-            header.setStyle("-fx-background-color: "+PRIMARY_COLOR+"; -fx-text-fill: white;");
+        var header = pane.lookup(".header-panel");
+        if (header != null) {
+            header.setStyle("-fx-background-color: " + PRIMARY_COLOR + "; -fx-text-fill: white;");
         }
     }
 }
