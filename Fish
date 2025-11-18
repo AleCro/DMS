@@ -1,29 +1,85 @@
 import java.util.List;
 
 /**
- * Fish.java
- * Represents a fish in the Florida Native Fish Database Management System (DMS).
+ * Represents a single fish record in the Florida Native Fish
+ * Data Management System (DMS).
  *
- * This class stores essential information about a fish, including its name,
- * scientific classification, average size, diet, habitats, conservation status,
- * and identification tag. It also supports customizable size measurement units.
+ * <p>Purpose:</p>
+ * <p>
+ * {@code Fish} is a simple data model (POJO) that stores all key attributes
+ * about a fish, including its common and scientific names, average size,
+ * measurement unit, diet, habitats, conservation status, and a unique tag
+ * identifier. Instances of this class are used by both console and GUI
+ * layers, as well as by {@link FishDAO} and {@link FishManager}.
+ * </p>
+ *
+ * <p>Typical usage:</p>
+ * <pre>
+ *     List&lt;String&gt; habitats = List.of("River", "Lake");
+ *     Fish bass = new Fish("Largemouth Bass",
+ *                          "Micropterus salmoides",
+ *                          12.0,
+ *                          "Insects, algae",
+ *                          habitats,
+ *                          "Least Concern",
+ *                          "001-00-0001");
+ * </pre>
  */
 public class Fish {
-    private String commonName;            // Common name of the fish
-    private String scientificName;        // Scientific (Latin) name
-    private double averageSize;           // Average size (must be > 0)
-    private String measurementUnit = "in"; // Default unit ("mm", "cm", "m", "in", "ft", "yd")
-    private String diet;                  // Diet description
-    private List<String> habitats;        // List of habitats where the fish is found
-    private String conservationStatus;    // Conservation status (e.g., Endangered)
-    private String tag;                   // Unique ID tag (format: 000-00-0000)
+
+    /** Common name of the fish. */
+    private String commonName;
+
+    /** Scientific (Latin) name of the fish. */
+    private String scientificName;
+
+    /** Average size of the fish; expected to be greater than zero. */
+    private double averageSize;
 
     /**
-     * Constructs a new Fish object with the specified attributes.
-     * Ensures that the average size is always positive.
+     * Unit of measurement used for the average size.
+     * Valid values include {@code "mm"}, {@code "cm"}, {@code "m"},
+     * {@code "in"}, {@code "ft"}, and {@code "yd"}.
      */
-    public Fish(String commonName, String scientificName, double averageSize, String diet,
-                List<String> habitats, String conservationStatus, String tag) {
+    private String measurementUnit = "in";
+
+    /** Description of the fish's diet. */
+    private String diet;
+
+    /** List of habitats where the fish is found. */
+    private List<String> habitats;
+
+    /** Conservation status (for example, "Endangered" or "Least Concern"). */
+    private String conservationStatus;
+
+    /**
+     * Unique identification tag for the fish.
+     * Expected format: {@code 000-00-0000}.
+     */
+    private String tag;
+
+    /**
+     * Constructs a new {@code Fish} with the specified attributes.
+     *
+     * <p>If the provided {@code averageSize} is not greater than zero,
+     * the size is defaulted to {@code 1.0} to avoid invalid values.</p>
+     *
+     * @param commonName         the common name of the fish
+     * @param scientificName     the scientific (Latin) name of the fish
+     * @param averageSize        the average size of the fish; must be greater than zero
+     * @param diet               a description of the fish's diet
+     * @param habitats           a list of habitats in which the fish is found
+     * @param conservationStatus the conservation status of the fish
+     * @param tag                the unique tag identifying this fish (for example, {@code 000-00-0000})
+     */
+    public Fish(String commonName,
+                String scientificName,
+                double averageSize,
+                String diet,
+                List<String> habitats,
+                String conservationStatus,
+                String tag) {
+
         this.commonName = commonName;
         this.scientificName = scientificName;
         this.averageSize = (averageSize > 0) ? averageSize : 1.0;
@@ -34,29 +90,60 @@ public class Fish {
     }
 
     // ---- Getters and Setters ----
+
+    /**
+     * Returns the common name of this fish.
+     *
+     * @return the common (everyday) name of the fish
+     */
     public String getCommonName() {
         return commonName;
     }
 
+    /**
+     * Sets the common name of this fish.
+     *
+     * @param commonName the new common name to assign
+     */
     public void setCommonName(String commonName) {
         this.commonName = commonName;
     }
 
+    /**
+     * Returns the scientific name of this fish.
+     *
+     * @return the scientific (Latin) name of the fish
+     */
     public String getScientificName() {
         return scientificName;
     }
 
+    /**
+     * Sets the scientific name of this fish.
+     *
+     * @param scientificName the new scientific name to assign
+     */
     public void setScientificName(String scientificName) {
         this.scientificName = scientificName;
     }
 
+    /**
+     * Returns the average size of this fish.
+     *
+     * @return the average size value
+     */
     public double getAverageSize() {
         return averageSize;
     }
 
     /**
-     * Sets the average size of the fish.
-     * Rejects non-positive values and retains the last valid value.
+     * Sets the average size of this fish.
+     *
+     * <p>The supplied value must be greater than zero. If a non-positive
+     * value is provided, the method logs a message and keeps the previous
+     * valid size.</p>
+     *
+     * @param averageSize the new average size; must be greater than zero
      */
     public void setAverageSize(double averageSize) {
         if (averageSize > 0) {
@@ -66,11 +153,25 @@ public class Fish {
         }
     }
 
-    /** ✅ Measurement Unit Accessors */
+    /**
+     * Returns the unit of measurement used for {@link #averageSize}.
+     *
+     * @return the size measurement unit (for example, {@code "in"} or {@code "cm"})
+     */
     public String getMeasurementUnit() {
         return measurementUnit;
     }
 
+    /**
+     * Sets the unit of measurement for the average size.
+     *
+     * <p>Valid units include {@code "mm"}, {@code "cm"}, {@code "m"},
+     * {@code "in"}, {@code "ft"}, and {@code "yd"}. The value is stored in
+     * lowercase for consistency. If the provided unit is {@code null} or not
+     * one of the valid values, the unit defaults to {@code "in"}.</p>
+     *
+     * @param measurementUnit the unit to set for the average size
+     */
     public void setMeasurementUnit(String measurementUnit) {
         if (measurementUnit == null) {
             System.out.println("Measurement unit cannot be null. Defaulting to 'in'.");
@@ -78,7 +179,6 @@ public class Fish {
             return;
         }
 
-        // Convert to lowercase for consistency
         String unit = measurementUnit.toLowerCase();
 
         switch (unit) {
@@ -96,39 +196,89 @@ public class Fish {
         }
     }
 
+    /**
+     * Returns the diet description of this fish.
+     *
+     * @return the diet field, typically a short text description
+     */
     public String getDiet() {
         return diet;
     }
 
+    /**
+     * Sets the diet description of this fish.
+     *
+     * @param diet a description of the fish's diet
+     */
     public void setDiet(String diet) {
         this.diet = diet;
     }
 
+    /**
+     * Returns the list of habitats associated with this fish.
+     *
+     * @return a list of habitat names; may be {@code null} if not set
+     */
     public List<String> getHabitats() {
         return habitats;
     }
 
+    /**
+     * Sets the list of habitats associated with this fish.
+     *
+     * @param habitats a list of habitat names where this fish can be found
+     */
     public void setHabitats(List<String> habitats) {
         this.habitats = habitats;
     }
 
+    /**
+     * Returns the conservation status of this fish.
+     *
+     * @return the conservation status, such as {@code "Endangered"} or {@code "Least Concern"}
+     */
     public String getConservationStatus() {
         return conservationStatus;
     }
 
+    /**
+     * Sets the conservation status of this fish.
+     *
+     * @param conservationStatus the new conservation status to assign
+     */
     public void setConservationStatus(String conservationStatus) {
         this.conservationStatus = conservationStatus;
     }
 
+    /**
+     * Returns the unique identification tag of this fish.
+     *
+     * @return the tag string (for example, {@code 000-00-0000})
+     */
     public String getTag() {
         return tag;
     }
 
+    /**
+     * Sets the unique identification tag of this fish.
+     *
+     * <p>Tag format is typically enforced elsewhere (for example, in the UI or DAO),
+     * but this setter does not validate the pattern itself.</p>
+     *
+     * @param tag the new tag value to assign
+     */
     public void setTag(String tag) {
         this.tag = tag;
     }
 
     // ---- Object Representation ----
+
+    /**
+     * Returns a multi-line string representation of this fish, including
+     * name, size with unit, diet, habitats, conservation status, and tag.
+     *
+     * @return a formatted string containing core fish details
+     */
     @Override
     public String toString() {
         return "Common Name: " + commonName +
