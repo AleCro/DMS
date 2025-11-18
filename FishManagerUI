@@ -1,18 +1,45 @@
 import java.util.*;
 
 /**
- * FishManagerUI.java
- * Interactive console-based interface for managing fish records.
+ * Console-based user interface for managing {@link Fish} records
+ * in the Florida Native Fish Data Management System (DMS).
  *
- * Purpose:
- *  - Wraps FishManager logic in user-friendly CLI prompts.
- *  - Restores detailed field-by-field updates, validation, and multi-match handling.
- *  - Maintains MVC separation: no business logic here, only interaction and input control.
+ * <p>Purpose:</p>
+ * <p>
+ * {@code FishManagerUI} wraps the business logic exposed by {@link FishManager}
+ * in a user-friendly command-line interface (CLI). It is responsible only for
+ * user interaction, input validation, and routing commands, while delegating
+ * all data operations to the manager.
+ * </p>
+ *
+ * <p>Primary responsibilities:</p>
+ * <ul>
+ *     <li>Display menus for listing, searching, updating, and removing fish.</li>
+ *     <li>Guide the user through interactive field-by-field updates.</li>
+ *     <li>Handle multi-match scenarios when multiple fish share the same tag.</li>
+ *     <li>Provide a duplicate-tag report for basic data integrity checks.</li>
+ * </ul>
+ *
+ * <p>Relationship to other classes:</p>
+ * <ul>
+ *     <li>Uses {@link FishManager} for all business logic and persistence.</li>
+ *     <li>Operates on {@link Fish} objects obtained from the manager.</li>
+ * </ul>
  */
 public class FishManagerUI {
+
+    /** Manager responsible for fish-related business logic and persistence. */
     private final FishManager manager;
+
+    /** Scanner used to read user input from the console. */
     private final Scanner scanner;
 
+    /**
+     * Constructs a new {@code FishManagerUI} for interactive console management.
+     *
+     * @param manager the {@link FishManager} that performs all fish data operations
+     * @param scanner the {@link Scanner} used to read input from the user
+     */
     public FishManagerUI(FishManager manager, Scanner scanner) {
         this.manager = manager;
         this.scanner = scanner;
@@ -20,7 +47,17 @@ public class FishManagerUI {
 
     /**
      * Displays the main interactive management menu for fish operations.
-     * Routes user selections to the appropriate handlers.
+     * <p>
+     * This method runs a loop that allows the user to:
+     * </p>
+     * <ul>
+     *     <li>List all fish.</li>
+     *     <li>Search for fish by tag.</li>
+     *     <li>Update one or more fish by tag.</li>
+     *     <li>Remove fish by tag.</li>
+     *     <li>Check for duplicate tags.</li>
+     * </ul>
+     * The method returns only when the user chooses to go back to the previous menu.
      */
     public void showManageMenu() {
         while (true) {
@@ -47,10 +84,14 @@ public class FishManagerUI {
         }
     }
 
-    //LIST ALL FISH
+    // LIST ALL FISH
+
     /**
-     * Displays all fish currently stored in the database.
-     * Prints each record in a clean, readable format.
+     * Displays all fish currently stored in the active data source.
+     * <p>
+     * Each {@link Fish} record is printed in a readable format, separated by
+     * divider lines. If no records are available, a message is shown instead.
+     * </p>
      */
     private void listAllFish() {
         List<Fish> all = manager.getFishList();
@@ -65,10 +106,15 @@ public class FishManagerUI {
         }
     }
 
-    //SEARCH FISH
+    // SEARCH FISH
+
     /**
      * Allows the user to search for fish records by their unique tag.
-     * Supports repeated searches and displays multiple matches if found.
+     * <p>
+     * Supports repeated searches within a loop. When matches are found,
+     * all results are displayed. If no matches exist, a message prompts
+     * the user to try again.
+     * </p>
      */
     private void searchFishByTag() {
         boolean searching = true;
@@ -92,11 +138,19 @@ public class FishManagerUI {
         }
     }
 
-    //UPDATE FISH
+    // UPDATE FISH
+
     /**
-     * Guides the user through an interactive menu for updating
-     * one or more fish records based on their tag.
-     * Provides nested submenus for editing specific fields.
+     * Guides the user through an interactive menu for updating one or more
+     * fish records based on their tag.
+     * <p>
+     * The user is able to:
+     * </p>
+     * <ul>
+     *     <li>Select which fish to modify when multiple records share a tag.</li>
+     *     <li>Update individual fields such as name, size, diet, habitats, status, and tag.</li>
+     *     <li>Persist changes through {@link FishManager#updateFishByTag} after each edit.</li>
+     * </ul>
      */
     private void updateFishInteractive() {
         boolean updating = true;
@@ -114,7 +168,9 @@ public class FishManagerUI {
             Fish fish = chooseFishFromMatches(matches);
             if (fish == null) continue;
 
-            //Inner menu for updating multiple fields interactively
+            String originalTag = fish.getTag();
+
+            // Inner menu for updating multiple fields interactively
             while (true) {
                 System.out.println("\nUpdating fish: " + fish.getTag());
                 System.out.println("1. Common Name");
@@ -143,16 +199,16 @@ public class FishManagerUI {
                     default -> System.out.println("Invalid choice. Please choose 1–8.");
                 }
 
-                // Automatically persist changes
+                // Automatically persist changes through the manager
                 manager.updateFishByTag(
-                        fish.getTag(),
+                        originalTag,          // the old tag (before editing)
                         fish.getCommonName(),
                         fish.getScientificName(),
                         fish.getAverageSize(),
                         fish.getDiet(),
                         fish.getHabitats(),
                         fish.getConservationStatus(),
-                        fish.getTag()
+                        fish.getTag()         // new tag
                 );
 
                 System.out.print("Would you like to update another field? (y/n): ");
@@ -164,10 +220,15 @@ public class FishManagerUI {
         }
     }
 
-    //REMOVE FISH
+    // REMOVE FISH
+
     /**
      * Prompts the user to remove fish by tag.
-     * Confirms deletion and allows multiple removals per session.
+     * <p>
+     * For tags that match multiple fish, the user is allowed to choose
+     * a specific record. After removal, the method offers the option
+     * to remove additional fish.
+     * </p>
      */
     private void removeFishInteractive() {
         boolean removing = true;
@@ -193,10 +254,15 @@ public class FishManagerUI {
         }
     }
 
-    //DUPLICATE TAGS
+    // DUPLICATE TAGS
+
     /**
      * Checks for duplicate tag entries across all fish records.
-     * Prints a summary report with counts per duplicated tag.
+     * <p>
+     * The method prints a simple report listing each duplicated tag and
+     * the number of times it appears. If no duplicates exist, a message
+     * confirms that tags are unique.
+     * </p>
      */
     private void checkDuplicateTags() {
         Map<String, Integer> duplicates = manager.getDuplicateTags();
@@ -209,10 +275,17 @@ public class FishManagerUI {
         }
     }
 
-    //FIELD UPDATE HELPERS
+    // FIELD UPDATE HELPERS
+
     /**
-     * Updates the common name of a given fish, validating that
-     * the input contains only alphabetic characters.
+     * Updates the common name of a given fish.
+     * <p>
+     * The new name must contain only alphabetic characters and spaces.
+     * Invalid input is rejected with a message, and the previous value
+     * is preserved.
+     * </p>
+     *
+     * @param fish the {@link Fish} whose common name will be updated
      */
     private void updateCommonName(Fish fish) {
         System.out.print("New Common Name (" + fish.getCommonName() + "): ");
@@ -227,6 +300,8 @@ public class FishManagerUI {
 
     /**
      * Updates the scientific name of a fish with letter-only validation.
+     *
+     * @param fish the {@link Fish} whose scientific name will be updated
      */
     private void updateScientificName(Fish fish) {
         System.out.print("New Scientific Name (" + fish.getScientificName() + "): ");
@@ -241,7 +316,19 @@ public class FishManagerUI {
 
     /**
      * Updates the average size of the fish, parsing both numeric and unit parts.
-     * Example accepted inputs: "12", "12.5", "12 in", "30 cm".
+     * <p>
+     * Example accepted inputs:
+     * </p>
+     * <ul>
+     *     <li>{@code "12"}</li>
+     *     <li>{@code "12.5"}</li>
+     *     <li>{@code "12 in"}</li>
+     *     <li>{@code "30 cm"}</li>
+     * </ul>
+     * The method validates that the numeric part is greater than zero and
+     * that the unit, if provided, is "inches" or "cm".
+     *
+     * @param fish the {@link Fish} whose average size will be updated
      */
     private void updateAverageSize(Fish fish) {
         while (true) {
@@ -276,7 +363,12 @@ public class FishManagerUI {
 
     /**
      * Updates the diet of the fish.
-     * Accepts plain text or numeric-prefixed input (e.g., "2 insects").
+     * <p>
+     * Accepts plain text or numeric-prefixed input, for example:
+     * {@code "2 insects"} or {@code "Insects"}.
+     * </p>
+     *
+     * @param fish the {@link Fish} whose diet field will be updated
      */
     private void updateDiet(Fish fish) {
         System.out.print("New Diet (" + fish.getDiet() + "): ");
@@ -290,8 +382,14 @@ public class FishManagerUI {
     }
 
     /**
-     * Allows the user to select multiple habitats from a predefined list.
-     * Supports comma-separated choices and custom habitat entries.
+     * Allows the user to select multiple habitats from a predefined list,
+     * with the option to add a custom habitat.
+     * <p>
+     * The user enters comma-separated numeric choices (1–8), and the method
+     * updates the fish's habitat list based on those selections.
+     * </p>
+     *
+     * @param fish the {@link Fish} whose habitats will be updated
      */
     private void updateHabitats(Fish fish) {
         List<String> habitatOptions = List.of("River", "Lake", "Swamp", "Mangrove", "Estuary", "Reef", "Spring", "Other");
@@ -349,7 +447,10 @@ public class FishManagerUI {
     }
 
     /**
-     * Updates the conservation status using a numbered menu of standard categories.
+     * Updates the conservation status of a fish using a numbered menu
+     * of standard categories.
+     *
+     * @param fish the {@link Fish} whose conservation status will be updated
      */
     private void updateConservationStatus(Fish fish) {
         while (true) {
@@ -379,7 +480,13 @@ public class FishManagerUI {
 
     /**
      * Updates the unique tag for a fish record.
-     * Validates format (000-00-0000) and warns about duplicates.
+     * <p>
+     * The tag must match the pattern {@code 000-00-0000}. If the tag is already
+     * in use by another fish, the method warns the user but still applies the
+     * update.
+     * </p>
+     *
+     * @param fish the {@link Fish} whose tag will be updated
      */
     private void updateTag(Fish fish) {
         while (true) {
@@ -401,10 +508,18 @@ public class FishManagerUI {
         }
     }
 
-    //UTILITY
+    // UTILITY
+
     /**
-     * Finds all fish with a tag matching the provided string.
-     * Returns a list to support multi-match scenarios.
+     * Finds all fish whose tag exactly matches the provided string.
+     * <p>
+     * The returned list may contain zero, one, or multiple matches, and
+     * is used to support multi-match scenarios in search, update, and remove
+     * workflows.
+     * </p>
+     *
+     * @param tag the tag value to match
+     * @return a list of {@link Fish} objects whose tags equal the given value
      */
     private List<Fish> findFishMatches(String tag) {
         return manager.getFishList().stream()
@@ -414,7 +529,14 @@ public class FishManagerUI {
 
     /**
      * Handles cases where multiple fish share the same tag.
-     * Prompts the user to select one of the matches for editing or deletion.
+     * <p>
+     * The user is presented with a numbered list of matches and prompted
+     * to select one for editing or deletion.
+     * </p>
+     *
+     * @param matches the list of matching {@link Fish} records
+     * @return the selected {@link Fish}, or {@code null} if the user cancels or
+     *         enters an invalid selection
      */
     private Fish chooseFishFromMatches(List<Fish> matches) {
         if (matches.size() == 1) return matches.get(0);
