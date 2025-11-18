@@ -4,18 +4,35 @@ import java.util.Arrays;
 import java.util.List;
 
 /**
- * FishDAO.java
+ * Data access object (DAO) for managing {@link Fish} records in the
+ * Florida Native Fish Database Management System (DMS).
  *
- * Provides data access operations for Fish objects.
- * Supports both mock mode (in-memory list) for testing
- * and JDBC mode for database integration using SQLite.
+ * <p>Purpose:</p>
+ * <p>
+ * This class encapsulates all persistence-related operations for {@code Fish}
+ * objects. It supports both:
+ * </p>
+ * <ul>
+ *     <li>Mock mode (in-memory list) for testing without a database, and</li>
+ *     <li>JDBC mode for SQLite database integration.</li>
+ * </ul>
  *
- * All CRUD methods return boolean or Fish objects for
- * easier verification and unit testing.
+ * <p>Primary responsibilities:</p>
+ * <ul>
+ *     <li>Connecting to and disconnecting from a SQLite database.</li>
+ *     <li>Performing CRUD operations (create, read, update, delete) on fish records.</li>
+ *     <li>Providing a custom calculation feature to compute the average fish size.</li>
+ *     <li>Validating {@link Fish} objects before insert or update.</li>
+ * </ul>
  *
- * This version is updated for Phase 4 of the Data Management System (DMS)
- * project, adding SQLite database integration and a custom
- * mathematical feature to calculate average fish size.
+ * <p>Typical usage example:</p>
+ * <pre>{@code
+ * FishDAO dao = new FishDAO();
+ * boolean connected = dao.connect("fish.db");
+ * List<Fish> allFish = dao.getAllFish();
+ * double avgSize = dao.calculateAverageFishSize();
+ * dao.disconnect();
+ * }</pre>
  */
 public class FishDAO {
 
@@ -28,17 +45,26 @@ public class FishDAO {
     /** Flag indicating whether the system is connected to the database. */
     private boolean useDatabase = false;
 
-    /** Default constructor for FishDAO. */
+    /**
+     * Creates a new {@code FishDAO} in mock mode by default.
+     * <p>
+     * The caller must invoke {@link #connect(String)} to enable database-backed
+     * operations; otherwise, methods will operate on the in-memory list.
+     * </p>
+     */
     public FishDAO() {}
 
     /**
      * Attempts to connect to a SQLite database file.
-     * The user must supply a valid file path to the database.
+     * <p>
+     * If the connection fails or an invalid path is provided, the DAO falls back
+     * to mock mode (local in-memory list) and returns {@code false}.
+     * </p>
      *
      * @param dbPath path to the SQLite database file
-     * @return true if the connection was successful, false otherwise
+     * @return {@code true} if the connection was successful; {@code false} otherwise
      */
-    public boolean connect(String dbPath){
+    public boolean connect(String dbPath) {
         try {
             if (dbPath == null || dbPath.isEmpty()) {
                 useDatabase = false;
@@ -60,11 +86,12 @@ public class FishDAO {
     }
 
     /**
-     * Closes the current database connection.
+     * Closes the current database connection (if any) and switches to mock mode.
      *
-     * @return true if successfully disconnected, false otherwise
+     * @return {@code true} if any active connection was successfully closed
+     *         or if no connection existed; {@code false} if an error occurred
      */
-    public boolean disconnect(){
+    public boolean disconnect() {
         try {
             if (useDatabase && connection != null) {
                 connection.close();
@@ -83,18 +110,23 @@ public class FishDAO {
     }
 
     /**
-     * Adds a new Fish record.
-     * Validates data before inserting to prevent crashes or invalid entries.
+     * Adds a new {@link Fish} record.
+     * <p>
+     * The method validates required fields and rejects invalid objects before
+     * attempting to insert into the database or mock list.
+     * </p>
      *
-     * @param fish the Fish object to add
-     * @return true if successfully added, false otherwise
+     * @param fish the {@link Fish} object to add
+     * @return {@code true} if successfully added; {@code false} otherwise
      */
-    public boolean addFish(Fish fish){
+    public boolean addFish(Fish fish) {
         if (fish == null) return false;
         if (!validateFish(fish)) return false;
 
         if (useDatabase) {
-            String sql = "INSERT INTO fish_records (common_name, scientific_name, average_size, measurement_unit, diet, habitats, conservation_status, tag) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+            String sql = "INSERT INTO fish_records " +
+                    "(common_name, scientific_name, average_size, measurement_unit, diet, habitats, conservation_status, tag) " +
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
             try (PreparedStatement stmt = connection.prepareStatement(sql)) {
                 stmt.setString(1, fish.getCommonName());
                 stmt.setString(2, fish.getScientificName());
@@ -117,14 +149,21 @@ public class FishDAO {
     }
 
     /**
-     * Retrieves all Fish records from the database or mock list.
-     * @return a list of all Fish objects
+     * Retrieves all {@link Fish} records from the active data source.
+     * <p>
+     * If connected to a database, the results are fetched from the {@code fish_records}
+     * table. Otherwise, the method returns a copy of the internal mock list.
+     * </p>
+     *
+     * @return a list of all {@link Fish} objects; never {@code null}
      */
-    public List<Fish> getAllFish(){
+    public List<Fish> getAllFish() {
         if (useDatabase) {
             List<Fish> fishList = new ArrayList<>();
             String sql = "SELECT * FROM fish_records";
-            try (Statement stmt = connection.createStatement(); ResultSet rs = stmt.executeQuery(sql)){
+            try (Statement stmt = connection.createStatement();
+                 ResultSet rs = stmt.executeQuery(sql)) {
+
                 while (rs.next()) {
                     Fish fish = new Fish(
                             rs.getString("common_name"),
@@ -148,20 +187,21 @@ public class FishDAO {
     }
 
     /**
-     * Finds a Fish by its unique tag.
-     * @param tag the tag of the Fish
-     * @return the matching Fish object, or null if not found
+     * Finds a {@link Fish} by its unique tag.
+     * <p>
+     * In database mode, this runs a parameterized query against the
+     * {@code fish_records} table. In mock mode, it searches the in-memory list.
+     * </p>
+     *
+     * @param tag the tag of the {@link Fish} to find
+     * @return the matching {@link Fish} object, or {@code null} if not found or if
+     *         {@code tag} is {@code null} or empty
      */
-    /**
-     * Finds a Fish by its unique tag.
-     * @param tag the tag of the Fish
-     * @return the matching Fish object, or null if not found
-     */
-    public Fish findFishByTag(String tag){
+    public Fish findFishByTag(String tag) {
         if (tag == null || tag.isEmpty()) return null;
         if (useDatabase) {
             String sql = "SELECT * FROM fish_records WHERE tag = ?";
-            try (PreparedStatement stmt = connection.prepareStatement(sql)){
+            try (PreparedStatement stmt = connection.prepareStatement(sql)) {
                 stmt.setString(1, tag);
                 ResultSet rs = stmt.executeQuery();
                 if (rs.next()) {
@@ -190,16 +230,36 @@ public class FishDAO {
     }
 
     /**
-     * Updates an existing Fish record.
-     * @param updatedFish the Fish object with updated information
-     * @return true if updated successfully, false otherwise
+     * Updates an existing {@link Fish} record identified by its previous tag.
+     * <p>
+     * This method supports changing the tag value. In database mode, the update
+     * uses the old tag in the {@code WHERE} clause and applies all new values
+     * from the {@code updatedFish} instance.
+     * </p>
+     *
+     * @param updatedFish the {@link Fish} object containing the new values
+     * @param oldTag      the original tag used to locate the existing record
+     * @return {@code true} if the record was updated; {@code false} if the record
+     *         was not found, validation failed, or an error occurred
      */
-    public boolean updateFish(Fish updatedFish){
-        if (updatedFish == null) return false;
+    public boolean updateFish(Fish updatedFish, String oldTag) {
+        if (updatedFish == null || oldTag == null || oldTag.isEmpty()) return false;
         if (!validateFish(updatedFish)) return false;
 
-        if (useDatabase){
-            String sql = "UPDATE fish_records SET common_name = ?, scientific_name = ?, average_size = ?, measurement_unit = ?, diet = ?, habitats = ?, conservation_status = ? WHERE tag = ?";
+        if (useDatabase) {
+            String sql = """
+                    UPDATE fish_records
+                    SET common_name = ?, 
+                        scientific_name = ?, 
+                        average_size = ?, 
+                        measurement_unit = ?, 
+                        diet = ?, 
+                        habitats = ?, 
+                        conservation_status = ?, 
+                        tag = ?
+                    WHERE tag = ?
+                    """;
+
             try (PreparedStatement stmt = connection.prepareStatement(sql)) {
                 stmt.setString(1, updatedFish.getCommonName());
                 stmt.setString(2, updatedFish.getScientificName());
@@ -208,34 +268,38 @@ public class FishDAO {
                 stmt.setString(5, updatedFish.getDiet());
                 stmt.setString(6, String.join(",", updatedFish.getHabitats()));
                 stmt.setString(7, updatedFish.getConservationStatus());
-                stmt.setString(8, updatedFish.getTag());
+                stmt.setString(8, updatedFish.getTag());   // new tag
+                stmt.setString(9, oldTag);                 // where old tag
+
                 int rows = stmt.executeUpdate();
                 return rows > 0;
             } catch (SQLException e) {
                 System.out.println("Error updating fish: " + e.getMessage());
                 return false;
             }
-        } else {
-            for (int i = 0; i < mockFishList.size(); i++) {
-                if (mockFishList.get(i).getTag().equals(updatedFish.getTag())){
-                    mockFishList.set(i, updatedFish);
-                    return true;
-                }
-            }
-            return false;
         }
+
+        // Mock mode
+        for (int i = 0; i < mockFishList.size(); i++) {
+            if (mockFishList.get(i).getTag().equals(oldTag)) {
+                mockFishList.set(i, updatedFish);
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
-     * Removes a Fish record by tag.
-     * @param tag the tag of the Fish to remove
-     * @return true if successfully removed, false otherwise
+     * Removes a {@link Fish} record by tag.
+     *
+     * @param tag the tag of the {@link Fish} to remove
+     * @return {@code true} if a matching record was removed; {@code false} otherwise
      */
-    public boolean removeFishByTag(String tag){
+    public boolean removeFishByTag(String tag) {
         if (tag == null || tag.isEmpty()) return false;
         if (useDatabase) {
             String sql = "DELETE FROM fish_records WHERE tag = ?";
-            try (PreparedStatement stmt = connection.prepareStatement(sql)){
+            try (PreparedStatement stmt = connection.prepareStatement(sql)) {
                 stmt.setString(1, tag);
                 int rows = stmt.executeUpdate();
                 return rows > 0;
@@ -250,32 +314,47 @@ public class FishDAO {
 
     /**
      * Calculates the average fish size across all records.
-     * This is the project's required custom feature.
-     * @return the average size, or 0 if no records exist
+     * <p>
+     * This is the project's required custom mathematical feature. In mock mode,
+     * it computes the average over the in-memory list; in database mode, it
+     * delegates the calculation to SQLite using {@code AVG(average_size)}.
+     * </p>
+     *
+     * @return the average size of all fish; {@code 0.0} if no records exist or
+     *         if an error occurs
      */
-    public double calculateAverageFishSize(){
+    public double calculateAverageFishSize() {
         if (!useDatabase) {
-            return mockFishList.stream().mapToDouble(Fish::getAverageSize).average().orElse(0);
+            return mockFishList.stream()
+                    .mapToDouble(Fish::getAverageSize)
+                    .average()
+                    .orElse(0.0);
         }
         String sql = "SELECT AVG(average_size) AS avg_size FROM fish_records";
-        try (Statement stmt = connection.createStatement(); ResultSet rs = stmt.executeQuery(sql)){
+        try (Statement stmt = connection.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
             if (rs.next()) {
                 return rs.getDouble("avg_size");
             }
         } catch (SQLException e) {
             System.out.println("Error calculating average size: " + e.getMessage());
         }
-        return 0;
+        return 0.0;
     }
 
     /**
-     * Clears all Fish records from the mock list or database.
-     * Used primarily for testing or resetting the dataset.
-     * @return true if cleared successfully, false otherwise
+     * Clears all {@link Fish} records from the mock list or database.
+     * <p>
+     * This is primarily used for testing, demo resets, or to quickly
+     * reinitialize the dataset.
+     * </p>
+     *
+     * @return {@code true} if records were cleared successfully; {@code false} if
+     *         an error occurred in database mode
      */
-    public boolean clearAll(){
-        if (useDatabase){
-            try (Statement stmt = connection.createStatement()){
+    public boolean clearAll() {
+        if (useDatabase) {
+            try (Statement stmt = connection.createStatement()) {
                 stmt.executeUpdate("DELETE FROM fish_records");
                 return true;
             } catch (SQLException e) {
@@ -289,16 +368,21 @@ public class FishDAO {
     }
 
     /**
-     * Validates that a Fish object has proper data before inserting or updating.
-     * @param fish the Fish object to validate
-     * @return true if valid, false otherwise
+     * Validates that a {@link Fish} object has proper data before inserting or updating.
+     * <p>
+     * This is a defensive check to protect the database and mock list from
+     * invalid or incomplete records.
+     * </p>
+     *
+     * @param fish the {@link Fish} object to validate
+     * @return {@code true} if valid; {@code false} otherwise
      */
-    private boolean validateFish(Fish fish){
-        if (fish.getCommonName() == null || fish.getCommonName().isEmpty()){
+    private boolean validateFish(Fish fish) {
+        if (fish.getCommonName() == null || fish.getCommonName().isEmpty()) {
             System.out.println("Validation Error: Common name cannot be empty.");
             return false;
         }
-        if (fish.getScientificName() == null || fish.getScientificName().isEmpty()){
+        if (fish.getScientificName() == null || fish.getScientificName().isEmpty()) {
             System.out.println("Validation Error: Scientific name cannot be empty.");
             return false;
         }
@@ -312,8 +396,14 @@ public class FishDAO {
         }
         return true;
     }
+
+    /**
+     * Indicates whether this DAO is currently using a SQLite database connection.
+     *
+     * @return {@code true} if operations target the database; {@code false} if
+     *         the DAO is in mock (in-memory) mode
+     */
     public boolean isUsingDatabase() {
         return useDatabase;
     }
 }
-
