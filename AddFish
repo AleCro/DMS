@@ -1,32 +1,71 @@
-import java.util.*;
+import java.util.List;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Scanner;
 
 /**
- * AddFish.java
+ * Provides console-based functionality to add new fish records
+ * into the Florida Native Fish Database Management System (DMS).
  *
- * Provides functionality to add new fish records into the database or local storage.
- * Works in both database-connected and mock (in-memory) modes through FishManager.
+ * <p>Purpose:</p>
+ * <p>
+ * {@code AddFish} prompts the user for all required attributes of a
+ * {@link Fish} and validates each field. Once a complete and valid
+ * fish instance is built, it delegates the insertion to
+ * {@link FishManager}, which decides whether to store the record
+ * in the database or in local mock (in-memory) mode.
+ * </p>
+ *
+ * <p>Primary responsibilities:</p>
+ * <ul>
+ *     <li>Guide the user through step-by-step data entry.</li>
+ *     <li>Validate names, size units, diets, habitats, and tag format.</li>
+ *     <li>Support cancellation ({@code ~}) and context help ({@code ?}) during input.</li>
+ *     <li>Create a {@link Fish} object and pass it to {@link FishManager#addFish(Fish)}.</li>
+ * </ul>
  */
 public class AddFish {
+
+    /** Scanner used to read user input from the console. */
     private final Scanner scanner = new Scanner(System.in);
+
+    /** Manager used to persist new fish records (database or local). */
     private final FishManager fishManager;
 
     /**
-     * Constructs an AddFish instance that interacts with FishManager.
-     * @param fishManager the FishManager used for adding fish records
+     * Constructs an {@code AddFish} helper bound to a given {@link FishManager}.
+     *
+     * @param fishManager the manager used to add newly created {@link Fish} records
      */
     public AddFish(FishManager fishManager) {
         this.fishManager = fishManager;
     }
 
-    /** Starts the interactive process of adding new fish records. */
+    /**
+     * Starts the interactive process of adding one or more fish records.
+     *
+     * <p>This method repeatedly:</p>
+     * <ol>
+     *     <li>Prompts the user for a complete set of fish details.</li>
+     *     <li>Builds a {@link Fish} instance and submits it to {@link FishManager#addFish(Fish)}.</li>
+     *     <li>Reports success or failure and shows a running total of records.</li>
+     *     <li>Asks whether the user wants to add another fish.</li>
+     * </ol>
+     *
+     * <p>The loop ends when the user answers anything other than {@code y}
+     * to the "add another fish" prompt, or cancels during data entry.</p>
+     */
     public void addFish() {
         boolean addingFish = true;
 
         while (addingFish) {
             Fish fish = promptFishDetails();
-            if (fish == null) return;  // User canceled
+            if (fish == null) {
+                // User canceled via "~"
+                return;
+            }
 
-            // Add using FishManager (auto handles DB or local)
+            // Add using FishManager (automatically handles DB or local mode)
             boolean success = fishManager.addFish(fish);
             if (success) {
                 System.out.println("✔ Fish added successfully!");
@@ -40,22 +79,46 @@ public class AddFish {
 
             System.out.print("\nWould you like to add another fish? (y/n): ");
             String again = scanner.nextLine().trim();
-            if (!again.equalsIgnoreCase("y")) addingFish = false;
+            if (!again.equalsIgnoreCase("y")) {
+                addingFish = false;
+            }
         }
     }
 
-    /** Collects and validates user input for all fish details. */
+    /**
+     * Collects and validates user input for all fields required to create a {@link Fish}.
+     *
+     * <p>This method prompts for:</p>
+     * <ul>
+     *     <li>Common name (letters only).</li>
+     *     <li>Scientific name (letters only).</li>
+     *     <li>Average size and measurement unit (for example, {@code 12 in} or {@code 30 cm}).</li>
+     *     <li>Diet (comma-separated, optionally with numeric prefixes).</li>
+     *     <li>Habitats (chosen from a numbered list, with support for a custom habitat).</li>
+     *     <li>Conservation status (1–5 menu).</li>
+     *     <li>Unique tag in {@code 000-00-0000} format.</li>
+     * </ul>
+     *
+     * <p>The user may type {@code ~} at the common-name prompt to cancel,
+     * or {@code ?} to view detailed format instructions.</p>
+     *
+     * @return a fully constructed {@link Fish} instance, or {@code null} if the user cancels
+     */
     private Fish promptFishDetails() {
+
         String commonName = readValidInput(
                 "Enter Fish Common Name (letters only) (press ~ to go back, ? for format info): ",
                 s -> s.matches("[a-zA-Z ]+"),
                 "Invalid input. Letters only.");
-        if (commonName.equals("~")) return null;
+        if (commonName.equals("~")) {
+            return null;
+        }
 
         String scientificName = readValidInput(
                 "Enter Scientific Name (letters only): ",
                 s -> s.matches("[a-zA-Z ]+"),
-                "Invalid input. Letters only.");
+                "Invalid input. Letters only."
+        );
 
         double averageSize = 0.0;
         String unit = "";
@@ -71,7 +134,9 @@ public class AddFish {
                 try {
                     averageSize = Double.parseDouble(parts[0]);
                     unit = parts[1];
-                    if (averageSize > 0) break;
+                    if (averageSize > 0) {
+                        break;
+                    }
                     System.out.println("Size must be greater than 0.");
                 } catch (NumberFormatException e) {
                     System.out.println("Invalid numeric value.");
@@ -85,15 +150,19 @@ public class AddFish {
                 "Enter Diet (letters only, optional leading number, comma-separated): ",
                 s -> Arrays.stream(s.split("\\s*,\\s*"))
                         .allMatch(i -> i.matches("(\\d+\\s)?[a-zA-Z ]+")),
-                "Invalid diet input. Example: 'algae' or '3 crabs, 2 shrimp'.");
+                "Invalid diet input. Example: 'algae' or '3 crabs, 2 shrimp'."
+        );
 
-        List<String> habitatOptions = List.of("River", "Lake", "Swamp", "Mangrove", "Estuary", "Reef", "Spring", "Other");
+        List<String> habitatOptions = List.of(
+                "River", "Lake", "Swamp", "Mangrove", "Estuary", "Reef", "Spring", "Other"
+        );
         List<String> habitats = new ArrayList<>();
 
         while (habitats.isEmpty()) {
             System.out.println("\nSelect habitats (comma-separated numbers 1–8):");
-            for (int i = 0; i < habitatOptions.size(); i++)
+            for (int i = 0; i < habitatOptions.size(); i++) {
                 System.out.println((i + 1) + ". " + habitatOptions.get(i));
+            }
             System.out.print("Enter your choice(s): ");
             String[] choices = scanner.nextLine().trim().split("\\s*,\\s*");
 
@@ -104,24 +173,39 @@ public class AddFish {
                         if (idx == 8) {
                             System.out.print("Enter custom habitat name: ");
                             String custom = scanner.nextLine().trim();
-                            if (!custom.isEmpty()) habitats.add(custom);
-                        } else habitats.add(habitatOptions.get(idx - 1));
+                            if (!custom.isEmpty()) {
+                                habitats.add(custom);
+                            }
+                        } else {
+                            habitats.add(habitatOptions.get(idx - 1));
+                        }
                     }
-                } catch (NumberFormatException ignored) {}
+                } catch (NumberFormatException ignored) {
+                    // Ignored invalid entries are handled by the empty-list check below
+                }
             }
-            if (habitats.isEmpty()) System.out.println("Invalid selection. Choose numbers 1–8.");
+            if (habitats.isEmpty()) {
+                System.out.println("Invalid selection. Choose numbers 1–8.");
+            }
         }
 
-        String[] statuses = {"Least Concern", "Near Threatened", "Vulnerable", "Endangered", "Critically Endangered"};
+        String[] statuses = {
+                "Least Concern", "Near Threatened", "Vulnerable", "Endangered", "Critically Endangered"
+        };
         String status = "";
         while (status.isEmpty()) {
             System.out.println("\nSelect Conservation Status:");
-            for (int i = 0; i < statuses.length; i++) System.out.println((i + 1) + ". " + statuses[i]);
+            for (int i = 0; i < statuses.length; i++) {
+                System.out.println((i + 1) + ". " + statuses[i]);
+            }
             System.out.print("Enter choice (1–5): ");
             try {
                 int c = Integer.parseInt(scanner.nextLine());
-                if (c >= 1 && c <= 5) status = statuses[c - 1];
-                else System.out.println("Invalid choice. Choose 1–5.");
+                if (c >= 1 && c <= 5) {
+                    status = statuses[c - 1];
+                } else {
+                    System.out.println("Invalid choice. Choose 1–5.");
+                }
             } catch (NumberFormatException e) {
                 System.out.println("Invalid input. Enter a number 1–5.");
             }
@@ -130,31 +214,55 @@ public class AddFish {
         String tag = readValidInput(
                 "Enter fish tag (000-00-0000): ",
                 s -> s.matches("\\d{3}-\\d{2}-\\d{4}"),
-                "Invalid tag format. Example: 001-00-0001");
+                "Invalid tag format. Example: 001-00-0001"
+        );
 
-        //  Build fish with proper unit and return
+        // Build Fish with proper unit and return
         Fish fish = new Fish(commonName, scientificName, averageSize, diet, habitats, status, tag);
         fish.setMeasurementUnit(unit);
         return fish;
     }
 
-    /** Helper for repeatedly validating user input. */
+    /**
+     * Helper method that repeatedly prompts for input until a valid value is entered.
+     *
+     * <p>Special commands:</p>
+     * <ul>
+     *     <li>{@code "~"} — returns {@code "~"} immediately to indicate cancellation.</li>
+     *     <li>{@code "?"} — calls {@link #showFormat()} to display help and then reprompts.</li>
+     * </ul>
+     *
+     * @param prompt    the prompt message to display to the user
+     * @param validator a predicate that returns {@code true} for valid input
+     * @param errorMsg  the message to display when validation fails
+     * @return the first non-empty, validated string entered by the user, or {@code "~"} if cancelled
+     */
     private String readValidInput(String prompt,
                                   java.util.function.Predicate<String> validator,
                                   String errorMsg) {
         while (true) {
             System.out.print(prompt);
             String input = scanner.nextLine().trim();
-            if (input.equals("~")) return "~";
-            if (input.equals("?")) { showFormat(); continue; }
-            if (validator.test(input)) return input;
+            if (input.equals("~")) {
+                return "~";
+            }
+            if (input.equals("?")) {
+                showFormat();
+                continue;
+            }
+            if (validator.test(input)) {
+                return input;
+            }
             System.out.println(errorMsg);
         }
     }
 
     /**
-     * Displays detailed instructions on how to properly input each field.
-     * Triggered when the user types '?' during data entry.
+     * Displays detailed instructions on how to format each field
+     * when adding a fish via the console.
+     *
+     * <p>This help text is shown when the user types {@code "?"}
+     * at a supported input prompt.</p>
      */
     private void showFormat() {
         System.out.println("""
