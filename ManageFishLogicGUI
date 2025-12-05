@@ -802,7 +802,7 @@ public class ManageFishLogicGUI {
                                 "Updated " + selected.size() + " record(s).");
 
                         // UNDO BUTTON
-                        Button undoBtn = new Button("Undo Bulk Edit (" + before.size() + ")");
+                        Button undoBtn = new Button("Undo Bulk Edit (" + selected.size() + ")");
                         NatureTheme.styleSecondary(undoBtn);
                         rootLayout.getChildren().add(1, undoBtn);
 
@@ -812,17 +812,23 @@ public class ManageFishLogicGUI {
 
                                 Fish target = fishList.stream()
                                         .filter(f -> f.getTag() != null && f.getTag().equals(tag))
-                                        .findFirst().orElse(null);
+                                        .findFirst()
+                                        .orElse(null);
 
-                                if (target != null) snap.applyTo(target);
+                                if (target != null) {
+                                    // Restore in-memory state
+                                    snap.applyTo(target);
 
-                                // Optionally push undo to DB:
-                                // fishDAO.updateFish(target, tag);
+                                    // Push restored state back to DB
+                                    if (fishDAO != null) {
+                                        fishDAO.updateFish(target, tag);
+                                    }
+                                }
                             }
                             refresh();
                             rootLayout.getChildren().remove(undoBtn);
                             showAlert("Undo Complete",
-                                    "Restored " + before.size() + " fish.");
+                                    "Restored " + selected.size() + " fish.");
                         });
 
                         // Auto-remove after 10 seconds
