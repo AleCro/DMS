@@ -1,161 +1,854 @@
 /**
  * Alejandro Coro Lopez
- * CEN 3024 - Software Development 1
- * October 20, 2025
+ * CEN 3024–Software Development 1
+ * October 27, 2025
  *
- * FishApp.java
- * Prompts for database connection once; user can retry invalid paths or press ~ to skip.
- * Validates path with exceptions.
+ * FishAppGUI.java
+ *
+ * This application is the graphical front-end of the
+ * "Florida Native Fish Database Management System" (DMS).
+ * It provides a user-friendly interface for managing a
+ * database of native fish species in Florida.
+ *
+ * The application supports:
+ *  - Manual and bulk fish entry
+ *  - Editing and deleting existing records
+ *  - Data analytics (averages and diversity)
+ *  - Randomized fun facts for user engagement
+ *
+ * This version integrates a cohesive "Nature Theme" for a
+ * professional, clean visual style consistent across tabs.
+ *
+ * The logic and data handling are delegated to the
+ * FishManager and ManageFishLogicGUI classes.
  */
 
+import javafx.application.Application;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
+import javafx.scene.Scene;
+import javafx.scene.control.*;
+import javafx.scene.layout.*;
+import javafx.stage.FileChooser;
+import javafx.stage.Stage;
 import java.io.File;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Scanner;
+import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 /**
- * Entry point for the Florida Native Fish Data Management System (DMS)
- * console application.
- *
- * <p>Purpose:</p>
+ * Main JavaFX entry point for the Florida Native Fish Database Management System (DMS).
  * <p>
- * This class is responsible for starting the application, prompting the user
- * for an optional SQLite database connection, and then delegating control
- * to the text-based {@link UI} menu layer.
- * </p>
- *
- * <p>Primary responsibilities:</p>
+ * This class wires together the graphical user interface and the core data layer.
+ * It is responsible for:
  * <ul>
- *     <li>Ask the user whether they want to connect to a SQLite database or run in mock mode.</li>
- *     <li>Validate the database path using defensive checks and exceptions.</li>
- *     <li>Initialize shared components such as {@link FishDAO} and {@link FishManager}.</li>
- *     <li>Pass these components into the {@link UI} class and show the main menu.</li>
- *     <li>Cleanly disconnect from the database (if connected) before exiting.</li>
+ *     <li>Loading fish records from an SQLite database (or running in in-memory mode).</li>
+ *     <li>Building the main tabbed interface (Add Fish, Add From File, Manage, Analytics, Fun Facts).</li>
+ *     <li>Coordinating with {@link FishManager}, {@link FishDAO}, and {@link ManageFishLogicGUI}.</li>
  * </ul>
- *
- * <p>Typical usage:</p>
- * <pre>{@code
- * // Run from the command line:
- * //   java FishApp
- * }</pre>
+ * The goal is to provide a user-friendly way to manage, analyze, and explore native fish
+ * species in Florida while keeping the data operations delegated to dedicated classes.
  */
-public class FishApp {
+public class FishAppGUI extends Application {
 
     /**
-     * Application entry point.
+     * Centralized list of fish records shared across all tabs.
+     * This list mirrors the records loaded from the database or maintained in memory.
+     */
+    private final List<Fish> fishList = new ArrayList<>();
+
+    /**
+     * Data Access Object responsible for all database operations
+     * (connecting to SQLite, reading, and writing records).
+     */
+    private final FishDAO fishDAO = new FishDAO();
+
+    /**
+     * Core manager for business logic and analytics operations.
+     * Uses the {@link FishDAO} for persistence and exposes a working list of {@link Fish} objects.
+     */
+    private final FishManager fishManager = new FishManager(fishDAO);
+
+    /**
+     * Reference to the management console tab controller used to trigger UI refreshes
+     * after data operations (adds, edits, deletes, imports).
+     */
+    private ManageFishLogicGUI manageTab;
+
+    /**
+     * Launches the JavaFX application.
      *
-     * <p>
-     * This method:
-     * </p>
-     * <ul>
-     *     <li>Prompts the user to decide whether to connect to a SQLite database.</li>
-     *     <li>Allows repeated attempts to enter a valid database path, or cancellation.</li>
-     *     <li>Initializes {@link FishDAO} and {@link FishManager}.</li>
-     *     <li>Creates the {@link UI} instance and displays the main menu loop.</li>
-     *     <li>Disconnects from the database and terminates the program.</li>
-     * </ul>
-     *
-     * @param args command-line arguments (not used in this implementation)
+     * @param args command-line arguments (not used by this application)
      */
     public static void main(String[] args) {
-        Scanner scanner = new Scanner(System.in);
-        FishDAO dao = new FishDAO();
-        boolean connected = false;
-        String answer = "";
-
-        // Repeat until valid input (yes/no)
-        while (true) {
-            System.out.println("\nWould you like to connect to a SQLite database? (yes/no)");
-            answer = scanner.nextLine().trim().toLowerCase();
-
-            if (answer.equals("yes") || answer.equals("no")) {
-                break; // valid input, exit loop
-            } else {
-                System.out.println("Please type 'yes' or 'no'.");
-            }
-        }
-        if (answer.equals("yes")) {
-            while (true) {
-                System.out.print("\nEnter SQLite database path (e.g., C:\\Users\\alex\\Desktop\\florida_fish.db)\n" +
-                        "Or press ~ to cancel DB connection: ");
-                String dbPath = scanner.nextLine().trim();
-
-                // If user cancels
-                if (dbPath.equals("~")) {
-                    System.out.println("Skipping database connection. Running in local mode.");
-                    dao.connect(""); // mock
-                    break;
-                }
-                try {
-                    validateDbPath(dbPath);
-                    connected = dao.connect(dbPath);
-                    if (connected) {
-                        System.out.println("✔ Connected to database successfully!");
-                        break;
-                    } else {
-                        System.out.println("⚠ Could not connect. Try again, or press ~ to cancel.");
-                    }
-                } catch (IllegalArgumentException e) {
-                    System.out.println("Invalid: " + e.getMessage());
-                    System.out.println("Try again, or press ~ to cancel.");
-                } catch (Exception e) {
-                    System.out.println("⚠ Unexpected error: " + e.getMessage());
-                    System.out.println("Try again, or press ~ to cancel.");
-                }
-            }
-        } else {
-            System.out.println("Running in local (in-memory) mode — changes will not be saved after exit.");
-            dao.connect(""); // mock
-        }
-
-        // Use the correct fish list depending on connection mode
-        List<Fish> fishList = dao.isUsingDatabase() ? dao.getAllFish() : new ArrayList<>();
-
-        // Create a FishManager linked to the DAO
-        FishManager fishManager = new FishManager(dao);
-
-        // Pass the DAO and FishManager into the UI
-        UI ui = new UI(dao, fishManager);
-        ui.showMainMenu();
-
-        dao.disconnect();
-        System.out.println("\nApplication closed. Goodbye!");
+        launch(args);
     }
 
     /**
-     * Validates the SQLite file path supplied by the user.
-     *
+     * JavaFX lifecycle entry point.
      * <p>
-     * This method checks for common path issues before attempting a database
-     * connection, including:
-     * </p>
+     * This method:
      * <ul>
-     *     <li>Empty or blank paths.</li>
-     *     <li>Missing {@code .db} or {@code .sqlite} extension.</li>
-     *     <li>Non-existent files.</li>
-     *     <li>Paths that are not regular files.</li>
+     *     <li>Prompts the user for an SQLite database file.</li>
+     *     <li>Attempts a connection and loads all existing fish records.</li>
+     *     <li>Initializes the shared {@link #fishList} and {@link FishManager} state.</li>
+     *     <li>Shows the initial welcome scene.</li>
      * </ul>
      *
-     * @param path the candidate path to a SQLite database file
-     * @throws IllegalArgumentException if the path is empty, does not have a valid
-     *                                  extension, does not exist, or is not a file
+     * @param stage the primary JavaFX stage provided by the runtime
      */
-    private static void validateDbPath(String path) throws IllegalArgumentException {
-        if (path == null || path.isBlank()) {
-            throw new IllegalArgumentException("Path cannot be empty.");
-        }
-        path = path.replace("\"", ""); // Remove quotes if copied from Explorer
+    @Override
+    public void start(Stage stage) {
+        stage.setTitle("Florida Native Fish DMS");
 
-        if (!(path.endsWith(".db") || path.endsWith(".sqlite"))) {
-            throw new IllegalArgumentException("File must end with .db or .sqlite");
+        //Prompt the user for a database file
+        FileChooser chooser = new FileChooser();
+        chooser.setTitle("Select SQLite Database File");
+        chooser.getExtensionFilters().add(
+                new FileChooser.ExtensionFilter("SQLite Database", "*.db")
+        );
+        File dbFile = chooser.showOpenDialog(stage);
+
+        //Attempt connection
+        if (dbFile != null && fishDAO.connect(dbFile.getAbsolutePath())) {
+            fishList.clear();
+            fishList.addAll(fishDAO.getAllFish());
+            System.out.println("Loaded " + fishList.size() + " records from database.");
+        } else {
+            System.out.println("No database selected. Running in mock (in-memory) mode.");
         }
-        File file = new File(path);
-        if (!file.exists()) {
-            throw new IllegalArgumentException("File not found: " + path);
+
+        //Sync FishManager with the current fish list
+        fishManager.getFishList().clear();
+        fishManager.getFishList().addAll(fishList);
+
+        //Show welcome screen
+        stage.setScene(createWelcomeScene(stage));
+        stage.show();
+    }
+
+    /**
+     * Creates the opening welcome scene.
+     * <p>
+     * This screen introduces the application, explains the core features,
+     * and transitions to the main tabbed interface when clicked.
+     *
+     * @param stage the main JavaFX window used to transition to the main scene
+     * @return the configured welcome {@link Scene}
+     */
+    private Scene createWelcomeScene(Stage stage){
+        VBox box=new VBox(20);
+        box.setAlignment(Pos.CENTER);
+        box.setPadding(new Insets(60));
+        NatureTheme.applyBackground(box);
+
+        Label title=new Label("Florida Native Fish Database Management System");
+        title.setStyle("""
+            -fx-font-family:'Georgia';
+            -fx-font-size:22;
+            -fx-text-fill:#1B5E20;
+            -fx-font-weight:bold;
+        """);
+
+        javafx.scene.text.Text subtitle=new javafx.scene.text.Text("""
+            Welcome to the Florida Native Fish DMS!
+            
+            • Manage and explore native fish species  
+            • Add fish manually or import from file  
+            • Analyze and discover fun facts  
+
+            (Click anywhere to continue...)
+        """);
+        subtitle.setWrappingWidth(600);
+        subtitle.setStyle("""
+            -fx-font-family:'Segoe UI';
+            -fx-font-size:16;
+            -fx-fill: #2E7D32;
+            -fx-line-spacing:5;
+            -fx-text-alignment:center;
+        """);
+
+        VBox card=new VBox(20,title,subtitle);
+        card.setAlignment(Pos.CENTER);
+        card.setPadding(new Insets(30));
+        card.setMaxWidth(700);
+        card.setStyle("""
+            -fx-background-color:white;
+            -fx-background-radius:16;
+            -fx-border-radius:16;
+            -fx-border-color:#A5D6A7;
+            -fx-border-width:1.5;
+            -fx-effect:dropshadow(three-pass-box,rgba(0,0,0,0.1),15,0,0,6);
+        """);
+
+        box.getChildren().add(card);
+        Scene scene=new Scene(box,950,600);
+        scene.setOnMouseClicked(e->stage.setScene(createMainScene(stage)));
+        return scene;
+    }
+
+    //----MAIN SCENE----
+
+    /**
+     * Builds the main application scene containing all core tabs:
+     * Add Fish, Add From File, Manage, Analytics, and Fun Facts.
+     * <p>
+     * This scene is displayed after the welcome screen and remains the primary
+     * workspace while the application is running.
+     *
+     * @param stage the primary JavaFX stage for hosting the main scene
+     * @return the configured main {@link Scene} with all application tabs
+     */
+    private Scene createMainScene(Stage stage){
+        TabPane tabPane=new TabPane();
+        tabPane.setTabMinWidth(140);
+        tabPane.setTabMinHeight(30);
+        tabPane.setStyle("-fx-background-color: transparent;");
+
+        StackPane root=new StackPane(tabPane);
+        root.setPadding(new Insets(16));
+        NatureTheme.applyBackground(root);
+
+        manageTab=new ManageFishLogicGUI(fishList, fishManager, fishDAO);
+        tabPane.getTabs().addAll(
+                createAddFishTab(),
+                createAddFromFileTab(),
+                manageTab.buildTab(),
+                createAnalyticsTab(),
+                createFunFactTab()
+        );
+        return new Scene(root,950,600);
+    }
+
+    //---- SHARED UI ELEMENTS ----
+
+    /**
+     * Builds a decorative section banner with consistent theme styling.
+     * Used at the top of each tab to visually separate sections.
+     *
+     * @param text the banner title text to display
+     * @return a configured {@link HBox} representing the banner
+     */
+    private HBox buildBanner(String text){
+        Label lbl=new Label(text.toUpperCase());
+        lbl.setFont(javafx.scene.text.Font.font("Segoe UI",javafx.scene.text.FontWeight.BOLD,18));
+        lbl.setStyle("-fx-text-fill:#1B5E20;-fx-letter-spacing:1.2;");
+
+        HBox banner=new HBox(lbl);
+        banner.setAlignment(Pos.CENTER_LEFT);
+        banner.setPadding(new Insets(12,20,12,20));
+        banner.setStyle("""
+            -fx-background-color:linear-gradient(to right,#a5d6a7,#a5d6a7);
+            -fx-border-color:#a5d6a7;
+            -fx-border-width:0 0 3 0;
+            -fx-background-radius:8;
+            -fx-border-radius:8;
+            -fx-effect:dropshadow(three-pass-box,rgba(0,0,0,0.35),10,0,0,3);
+        """);
+        return banner;
+    }
+
+    /**
+     * Wraps a UI region inside a soft, card-styled container to provide
+     * consistent padding, background, and drop-shadow across the application.
+     *
+     * @param content the UI {@link Region} to display inside the card
+     * @return a styled {@link VBox} acting as a card container
+     */
+    private VBox wrapInCard(Region content){
+        VBox card=new VBox(content);
+        card.setPadding(new Insets(16));
+        card.setSpacing(10);
+        card.setStyle("""
+            -fx-background-color:linear-gradient(to bottom,#FFFFFF,#F5F7F8);
+            -fx-border-color:#C7D0D8;
+            -fx-border-width:1;
+            -fx-background-radius:8;
+            -fx-border-radius:8;
+            -fx-effect:dropshadow(three-pass-box,rgba(0,0,0,0.08),6,0,0,3);
+        """);
+        return card;
+    }
+
+    //---- ADD FISH TAB ----
+
+    /**
+     * Creates the "Add Fish" tab.
+     * <p>
+     * This tab allows the user to manually enter a new {@link Fish} record with:
+     * <ul>
+     *     <li>Common and scientific names</li>
+     *     <li>Average size and measurement unit</li>
+     *     <li>Diet, habitats, conservation status, and tag</li>
+     * </ul>
+     * Input values are validated before a fish is added to the database and in-memory list.
+     *
+     * @return a configured {@link Tab} for adding new fish records
+     */
+    private Tab createAddFishTab(){
+        Tab tab=new Tab("Add Fish");
+        tab.setClosable(false);
+        GridPane grid=new GridPane();
+        grid.setHgap(12);
+        grid.setVgap(12);
+
+        // ---- Input fields ----
+        TextField nameField=new TextField();
+        TextField sciNameField=new TextField();
+        TextField sizeField=new TextField();
+        TextField dietField=new TextField();
+        TextField tagField=new TextField();
+        TextField habitatField=new TextField();
+
+        ComboBox<String> statusBox=new ComboBox<>();
+        statusBox.getItems().addAll(
+                "Least Concern", "Near Threatened",
+                "Vulnerable", "Endangered", "Critically Endangered"
+        );
+        ComboBox<String>unitBox=new ComboBox<>();
+        unitBox.getItems().addAll("mm", "cm", "m", "in", "ft", "yd");
+        unitBox.setValue("in");
+
+        Button addBtn=new Button("Add Fish");
+        NatureTheme.stylePrimary(addBtn);
+
+        /**
+         * Handles the Add Fish button click event.
+         * <p>
+         * This handler performs:
+         * <ul>
+         *     <li>Input retrieval and trimming.</li>
+         *     <li>Validation of required fields and formats (size, tag, names).</li>
+         *     <li>Creation of a new {@link Fish} instance.</li>
+         *     <li>Persistence via {@link FishDAO} and UI refresh in {@link ManageFishLogicGUI}.</li>
+         * </ul>
+         */
+        addBtn.setOnAction(e->{
+            try{
+                //Input parsing and preprocessing
+                String common=nameField.getText().trim();
+                String sci=sciNameField.getText().trim();
+                String sizeText=sizeField.getText().trim().replace(",",".");
+                String unit=unitBox.getValue();
+                String diet=dietField.getText().trim();
+                String status=statusBox.getValue();
+                String tag=tagField.getText().trim();
+
+                //Process habitats safely
+                List<String>habitats=new ArrayList<>();
+                if(!habitatField.getText().isBlank()){
+                    habitats=Arrays.stream(habitatField.getText().split("\\s*,\\s*"))
+                            .map(String::trim)
+                            .filter(s->!s.isBlank())
+                            .toList();
+                }
+                //Reset field borders before validation feedback
+                nameField.setStyle("");
+                sciNameField.setStyle("");
+                sizeField.setStyle("");
+                dietField.setStyle("");
+                tagField.setStyle("");
+                habitatField.setStyle("");
+                statusBox.setStyle("");
+
+                StringBuilder errors=new StringBuilder();
+
+                //Required field checks
+                if(common.isEmpty())errors.append("• Common name is required.\n");
+                if(sci.isEmpty())errors.append("• Scientific name is required.\n");
+                if(sizeText.isEmpty())errors.append("• Average size is required.\n");
+                if(diet.isEmpty())errors.append("• Diet is required.\n");
+                if(tag.isEmpty())errors.append("• Tag is required.\n");
+                if(status==null)errors.append("• Conservation status must be selected.\n");
+
+                //Logical validation
+                if(common.matches(".*\\d.*")) errors.append("• Common name cannot contain numbers.\n");
+                if(sci.matches(".*\\d.*")) errors.append("• Scientific name cannot contain numbers.\n");
+
+                double size=0;
+                try{
+                    if(!sizeText.isEmpty())size=Double.parseDouble(sizeText);
+                    if(size<=0)errors.append("• Average size must be greater than 0.\n");
+                }catch(NumberFormatException exNum){
+                    errors.append("• Average size must be a valid number.\n");
+                }
+                if(!tag.matches("\\d{3}-\\d{2}-\\d{4}"))
+                    errors.append("• Tag must be in format 000-00-0000.\n");
+
+                //Non-blocking duplicate tag check
+                boolean duplicateTag=fishManager.getFishList().stream()
+                        .anyMatch(f->f.getTag().equalsIgnoreCase(tag));
+                if(duplicateTag)System.out.println("Duplicate tag allowed ("+tag+")");
+
+                //Display validation errors, if any
+                if(errors.length()>0){
+                    showAlert("Error",errors.toString());
+                    if(common.isEmpty()||common.matches(".*\\d.*"))
+                        nameField.setStyle("-fx-border-color: red; -fx-border-width:2;");
+                    if(sci.isEmpty()||sci.matches(".*\\d.*"))
+                        sciNameField.setStyle("-fx-border-color:red;-fx-border-width:2;");
+                    if(sizeText.isEmpty()||size<=0)
+                        sizeField.setStyle("-fx-border-color:red;-fx-border-width:2;");
+                    if(diet.isEmpty())
+                        dietField.setStyle("-fx-border-color:red;-fx-border-width:2;");
+                    if(tag.isEmpty()||!tag.matches("\\d{3}-\\d{2}-\\d{4}"))
+                        tagField.setStyle("-fx-border-color:red;-fx-border-width:2;");
+                    if(status==null)
+                        statusBox.setStyle("-fx-border-color:red;-fx-border-width:2;");
+                    return;
+                }
+
+                //Add new fish record
+                Fish fish=new Fish(common, sci, size, diet, habitats, status, tag);
+                fish.setMeasurementUnit(unit);
+                fishDAO.addFish(fish); //Store new fish in the database (if connected)
+
+                if(duplicateTag)
+                    showAlert("Note","Another Fish already has this tag: "+tag+"\nYou can edit or merge this later in Manage Fish.");
+
+                if(manageTab!=null)manageTab.refresh();
+                showAlert("Success","Fish \""+common+"\" added successfully!");
+
+                //Clear input fields post-success
+                nameField.clear();
+                sciNameField.clear();
+                sizeField.clear();
+                dietField.clear();
+                tagField.clear();
+                habitatField.clear();
+                statusBox.setValue(null);
+                unitBox.setValue("in");
+
+            }catch(Exception ex){
+                showAlert("Error","Unexpected error: "+ex.getMessage());
+            }
+        });
+
+        //Field layout mapping
+        int r=0;
+        grid.add(new Label("Common Name:"),0,r);grid.add(nameField,1,r++);
+        grid.add(new Label("Scientific Name:"),0,r);grid.add(sciNameField,1,r++);
+        grid.add(new Label("Average Size:"),0,r);grid.add(sizeField,1,r);grid.add(unitBox,2,r++);
+        grid.add(new Label("Diet:"),0,r);grid.add(dietField,1,r++);
+        grid.add(new Label("Habitats (comma-separated):"),0,r);grid.add(habitatField,1,r++);
+        grid.add(new Label("Conservation Status:"),0,r);grid.add(statusBox,1,r++);
+        grid.add(new Label("Tag (000-00-0000):"),0,r);grid.add(tagField,1,r++);
+        grid.add(addBtn,1,r);
+
+        VBox content=new VBox(14,buildBanner("Add Fish"),wrapInCard(grid));
+        content.setPadding(new Insets(10));
+        tab.setContent(content);
+        return tab;
+    }
+
+    //---- ADD FROM FILE TAB ----
+
+    /**
+     * Creates the "Add From File" tab.
+     * <p>
+     * This tab provides instructions and a file picker button to import fish data
+     * from a structured plain-text file. Each line is parsed, validated, and
+     * converted into a {@link Fish} object where possible.
+     *
+     * @return the configured {@link Tab} for bulk importing fish records
+     */
+    private Tab createAddFromFileTab(){
+        Tab tab=new Tab("Add From File");
+        tab.setClosable(false);
+
+        VBox layout=new VBox(16);
+        layout.setAlignment(Pos.TOP_CENTER);
+        layout.setPadding(new Insets(20));
+
+        //Use Text to avoid Label truncation and enable wrapping
+        javafx.scene.text.Text info=new javafx.scene.text.Text("""
+            Import multiple fish entries from a structured text file.
+            
+            Expected format per line (7 fields separated with " - "):
+              Common - Scientific - Size(Unit) - Diet - Habitats - Conservation Status - Tag
+              
+            Units accepted: mm, cm, m, in, ft, yd
+            Conservation Status examples: Least Concern, Near Threatened, Vulnerable, Endangered, Critically Endangered
+            Tag format: 000-00-0000
+            
+            Example:
+            Bass - Micropterus salmoides - 12 in - insects, algae - River, Lake - Least Concern - 001-00-0001
+        """);
+        info.setWrappingWidth(700);
+        info.setStyle("""
+            -fx-font-family:'Segoe UI';
+            -fx-font-size:14;
+            -fx-fill:#1B5E20;
+            -fx-line-spacing:4;
+        """);
+
+        Button selectBtn=new Button("Select File");
+        NatureTheme.styleSecondary(selectBtn);
+
+        //Trigger import workflow
+        selectBtn.setOnAction(e->importFromFile());
+
+        VBox card=wrapInCard(new VBox(18,info,selectBtn));
+        card.setAlignment(Pos.TOP_CENTER);
+        card.setPadding(new Insets(24));
+
+        VBox content=new VBox(14,buildBanner("Add From File"),card);
+        content.setPadding(new Insets(10));
+        tab.setContent(content);
+        return tab;
+    }
+
+    /**
+     * Opens a file picker and attempts to import fish records line by line.
+     * <p>
+     * This method:
+     * <ul>
+     *     <li>Prompts the user to select a text file.</li>
+     *     <li>Parses each non-empty, non-comment line into 7 logical fields.</li>
+     *     <li>Validates field formats (names, size, unit, tag, habitats, status).</li>
+     *     <li>Creates {@link Fish} objects for valid lines and persists them.</li>
+     *     <li>Collects and reports formatting and validation issues in a summary dialog.</li>
+     * </ul>
+     * Non-fatal issues such as duplicates or malformed lines are summarized but do not
+     * prevent valid records from being imported.
+     */
+    private void importFromFile(){
+        FileChooser chooser=new FileChooser();
+        chooser.setTitle("Select Fish Data File");
+        chooser.getExtensionFilters().addAll(
+                new FileChooser.ExtensionFilter("Text Files","*.txt"),
+                new FileChooser.ExtensionFilter("All Files","*.*")
+        );
+        File file=chooser.showOpenDialog(null);
+        if(file==null)return;
+        int successCount=0;
+        int lineNumber=0;
+        StringBuilder allErrors=new StringBuilder();
+
+        //Accepts numbers with optional decimals followed by an optional unit
+        Pattern sizePattern=Pattern.compile(
+                "^\\s*([0-9]+(?:\\.[0-9]+)?)\\s*(mm|cm|m|in|ft|yd)?\\s*$",
+                Pattern.CASE_INSENSITIVE
+        );
+
+        //Track duplicates encountered in the file to surface them in the summary
+        Set<String> seenTags = new HashSet<>();
+        Set<String> duplicateTags = new LinkedHashSet<>();
+
+        try(Scanner sc = new Scanner(file)) {
+            while(sc.hasNextLine()) {
+                String line = sc.nextLine().trim();
+                lineNumber++;
+                if(line.isEmpty() || line.startsWith("#")) continue;
+
+                List<String> lineErrors = new ArrayList<>();
+
+                //Split the 7 expected fields; tolerate extra spaces around separators
+                String[] p = line.split("\\s*-\\s*", 7);
+                if(p.length<7){
+                    lineErrors.add("Incorrect number of fields (expected 7, found " + p.length + ")");
+                }
+
+                //Defensive reads to avoid IndexOutOfBounds
+                String common=(p.length>0) ? p[0].trim() : "";
+                String sci=(p.length>1) ? p[1].trim() : "";
+                String sizeStr=(p.length>2) ? p[2].trim() : "";
+                String diet=(p.length>3) ? p[3].trim() : "";
+                List<String> habitats=(p.length>4)
+                        ? Arrays.stream(p[4].split("\\s*,\\s*"))
+                        .map(String::trim)
+                        .filter(s -> !s.isEmpty())
+                        .toList()
+                        : List.of();
+                String status=(p.length > 5) ? p[5].trim() : "";
+                String tag=(p.length > 6) ? p[6].trim() : "";
+
+                //Required fields
+                if(common.isEmpty()) lineErrors.add("Missing common name");
+                if(sci.isEmpty()) lineErrors.add("Missing scientific name");
+                if(sizeStr.isEmpty()) lineErrors.add("Missing size");
+                if(diet.isEmpty()) lineErrors.add("Missing diet");
+                if(habitats.isEmpty()) lineErrors.add("Missing habitats");
+                if(status.isEmpty()) lineErrors.add("Missing conservation status");
+                if(tag.isEmpty()) lineErrors.add("Missing tag");
+
+                //Name sanity checks (avoid digits in names)
+                if(common.matches(".*\\d.*"))
+                    lineErrors.add("Common name contains numbers (" + common + ")");
+                if(sci.matches(".*\\d.*"))
+                    lineErrors.add("Scientific name contains numbers (" + sci + ")");
+
+                //Tag format
+                if(!tag.isEmpty() && !tag.matches("\\d{3}-\\d{2}-\\d{4}")){
+                    lineErrors.add("Invalid tag format (" + tag + ")");
+                }
+
+                //Size+unit parsing
+                double size=0;
+                String unit="in";
+                if(!sizeStr.isEmpty()){
+                    Matcher m = sizePattern.matcher(sizeStr.replace(",", ".")); //accept 12,5 as 12.5
+                    if(m.find()){
+                        try{
+                            size = Double.parseDouble(m.group(1));
+                            unit = (m.group(2) !=null)? m.group(2).toLowerCase() : "";
+                            if(unit.isEmpty())
+                                lineErrors.add("Missing size unit (e.g., in, cm, ft)");
+                        }catch (NumberFormatException e){
+                            lineErrors.add("Invalid numeric value for size (" +sizeStr+ ")");
+                        }
+                    }else{
+                        lineErrors.add("Invalid size format (" + sizeStr + ")");
+                    }
+                }
+
+                //Track duplicate tags within the same import file
+                if(!tag.isEmpty()) {
+                    if(!seenTags.add(tag)) duplicateTags.add(tag);
+                }
+
+                //If anything failed validation, accumulate and continue with next line
+                if(!lineErrors.isEmpty()) {
+                    allErrors.append("Line ").append(lineNumber).append(": ")
+                            .append(String.join("; ", lineErrors))
+                            .append("\n");
+                    continue;
+                }
+
+                //Attempt to create and store the fish
+                try{
+                    Fish f = new Fish(common, sci, size, diet, habitats, status, tag);
+                    f.setMeasurementUnit(unit);
+
+                    // Add fish to both the in-memory list and the SQLite database
+                    fishManager.addFish(f);
+                    fishDAO.addFish(f); //  persist record to database
+
+                    // ---- Refresh Manage tab to reflect imported data ----
+                    if (manageTab != null) {
+                        manageTab.refresh(); //  reloads table immediately
+                    }
+
+                    successCount++;
+                }catch (Exception e){
+                    allErrors.append("Line ").append(lineNumber)
+                            .append(": Unexpected error → ").append(e.getMessage()).append("\n");
+                }
+            }
+        }catch(Exception e){
+            showAlert("Error","Failed to import: "+e.getMessage());
+            return;
         }
-        if (!file.isFile()) {
-            throw new IllegalArgumentException("The specified path is not a valid file.");
+
+        //Reflect imported items in the Manage tab
+        if(manageTab!=null) manageTab.refresh();
+
+        //Build a human-readable summary
+        StringBuilder summary=new StringBuilder();
+        summary.append("Imported Successfully: ").append(successCount).append(" fish\n\n");
+
+        if(!duplicateTags.isEmpty()) {
+            summary.append("Duplicate Tags Detected (within the file):\n");
+            duplicateTags.forEach(t -> summary.append("  • ").append(t).append("\n"));
+            summary.append("\n");
         }
+        if(!allErrors.isEmpty()) {
+            summary.append("Formatting/Validation Issues:\n")
+                    .append(allErrors);
+        }
+        if(duplicateTags.isEmpty()&& allErrors.isEmpty()){
+            summary.append("All records imported successfully with no issues.\n");
+        }
+
+        //Present the summary in a scrollable alert
+        Alert summaryAlert=new Alert(Alert.AlertType.INFORMATION);
+        summaryAlert.setTitle("Import Summary");
+        summaryAlert.setHeaderText("File Import Completed");
+
+        TextArea textArea=new TextArea(summary.toString());
+        textArea.setEditable(false);
+        textArea.setWrapText(true);
+        textArea.setPrefWidth(520);
+        textArea.setPrefHeight(280);
+        textArea.setStyle("""
+            -fx-control-inner-background: #F1F8E9;
+            -fx-font-family: 'Consolas';
+            -fx-font-size: 13;
+            -fx-text-fill: #1B5E20;
+            -fx-border-color: #A5D6A7;
+            -fx-border-radius: 6;
+            -fx-background-radius: 6;
+        """);
+
+        //Subtle color hinting depending on result type
+        if(!duplicateTags.isEmpty()) {
+            summaryAlert.getDialogPane().setStyle("-fx-background-color: #FFF3E0;");
+        }else if (!allErrors.isEmpty()) {
+            summaryAlert.getDialogPane().setStyle("-fx-background-color: #FFFDE7;");
+        } else{
+            summaryAlert.getDialogPane().setStyle("-fx-background-color: #E8F5E9;");
+        }
+        summaryAlert.getDialogPane().setContent(textArea);
+        NatureTheme.styleAlert(summaryAlert);
+        summaryAlert.showAndWait();
+    }
+
+    //---- ANALYTICS TAB ----
+
+    /**
+     * Creates the "Analytics" tab.
+     * <p>
+     * This tab offers simple aggregate insights such as:
+     * <ul>
+     *     <li>Average number of habitats per fish.</li>
+     *     <li>Average size (using the most common unit).</li>
+     *     <li>Average size based on database queries.</li>
+     *     <li>A basic ecological diversity metric.</li>
+     * </ul>
+     *
+     * @return the configured {@link Tab} for running analytic actions
+     */
+    private Tab createAnalyticsTab(){
+        Tab tab=new Tab("Analytics");
+        tab.setClosable(false);
+
+        Button avgHab=new Button("Average Habitats per Fish");
+        NatureTheme.stylePrimary(avgHab);
+        avgHab.setOnAction(e->showAlert(
+                "Average Habitats",
+                String.format("%.2f",fishManager.calculateAverageHabitatsPerFish()))
+        );
+        Button avgSize=new Button("Average Size");
+        NatureTheme.stylePrimary(avgSize);
+        avgSize.setOnAction(e -> {
+
+            //Display the average size with the most common unit currently used
+            String commonUnit=fishList.stream()
+                    .filter(f->f.getMeasurementUnit()!= null)
+                    .collect(Collectors.groupingBy(Fish::getMeasurementUnit,Collectors.counting()))
+                    .entrySet().stream()
+                    .max(Map.Entry.comparingByValue())
+                    .map(Map.Entry::getKey)
+                    .orElse("in");
+            showAlert("Average Size",
+                    String.format("%.2f %s",fishManager.calculateAverageSize(),commonUnit));
+        });
+
+        //Database-based average size
+        Button avgDB = new Button("Average Size (Database)");
+        NatureTheme.stylePrimary(avgDB);
+        avgDB.setOnAction(e -> {
+            double avg = fishDAO.calculateAverageFishSize();
+            showAlert("Database Average Size", String.format("%.2f", avg));
+        });
+
+        Button topFish=new Button("Most Ecologically Diverse Fish");
+        NatureTheme.stylePrimary(topFish);
+        topFish.setOnAction(e->showAlert("Top Diversity", fishManager.getTopDiversityFish()));
+
+        VBox buttonCol = new VBox(12, avgHab, avgSize, avgDB, topFish);
+        buttonCol.setAlignment(Pos.TOP_LEFT);
+
+        VBox content=new VBox(14,buildBanner("Analytics"),wrapInCard(buttonCol));
+        content.setPadding(new Insets(10));
+        tab.setContent(content);
+        return tab;
+    }
+
+    //---- FUN FACT TAB ----
+
+    /**
+     * Creates the "Fun Facts" tab.
+     * <p>
+     * This tab provides a light-weight, morale-boosting feature that shows
+     * randomized fun facts derived from the fish data managed by {@link FishManager}.
+     *
+     * @return the configured {@link Tab} for displaying fun facts
+     */
+    private Tab createFunFactTab(){
+        Tab tab=new Tab("Fun Facts");
+        tab.setClosable(false);
+
+        TextArea area=new TextArea();
+        area.setWrapText(true);
+        area.setEditable(false);
+        area.setPrefHeight(250);
+        area.setStyle("""
+            -fx-control-inner-background: linear-gradient(to bottom, #FFFDE7, #FFF9C4);
+            -fx-font-family: 'Comic Sans MS';
+            -fx-font-size: 15;
+            -fx-text-fill: #5D4037;
+            -fx-background-radius: 12;
+            -fx-border-radius: 12;
+            -fx-border-color: #FFD54F;
+            -fx-border-width: 2;
+        """);
+
+        Button fact = new Button("Show Random Fun Fact");
+        fact.setPrefWidth(250);
+        fact.setStyle("""
+            -fx-background-color: linear-gradient(to right, #FFB300, #FFD54F);
+            -fx-text-fill: #4E342E;
+            -fx-font-size: 14;
+            -fx-font-weight: bold;
+            -fx-background-radius: 8;
+            -fx-cursor: hand;
+        """);
+        fact.setOnMouseEntered(e -> fact.setStyle("""
+            -fx-background-color: linear-gradient(to right, #FFA000, #FFC107);
+            -fx-text-fill: #3E2723;
+            -fx-font-size: 14;
+            -fx-font-weight: bold;
+            -fx-background-radius: 8;
+            -fx-cursor: hand;
+        """));
+        fact.setOnMouseExited(e -> fact.setStyle("""
+            -fx-background-color: linear-gradient(to right, #FFB300, #FFD54F);
+            -fx-text-fill: #4E342E;
+            -fx-font-size: 14;
+            -fx-font-weight: bold;
+            -fx-background-radius: 8;
+            -fx-cursor: hand;
+        """));
+        //Fade-in effect when showing a new fact
+        fact.setOnAction(e->{
+            RandomFunFact.initialize(fishManager);
+            String newFact=RandomFunFact.getRandomFact();
+            area.setOpacity(0);
+
+            javafx.animation.FadeTransition fade=
+                    new javafx.animation.FadeTransition(javafx.util.Duration.seconds(0.7),area);
+            fade.setFromValue(0);
+            fade.setToValue(1);
+            fade.play();
+            area.setText(newFact);
+        });
+        VBox innerBox=new VBox(15,fact,area);
+        innerBox.setAlignment(Pos.TOP_CENTER);
+        innerBox.setPadding(new Insets(20));
+
+        VBox content=new VBox(14,buildBanner("Fun Facts"), wrapInCard(innerBox));
+        content.setPadding(new Insets(10));
+        tab.setContent(content);
+        return tab;
+    }
+
+    //---- HELPERS -----
+
+    /**
+     * Convenience wrapper for showing uniform information alerts with
+     * {@link NatureTheme} styling applied.
+     *
+     * @param title the alert dialog title
+     * @param msg   the message body to display in the alert
+     */
+    private void showAlert(String title, String msg){
+        Alert a=new Alert(Alert.AlertType.INFORMATION);
+        a.setTitle(title);
+        a.setHeaderText(null);
+        a.setContentText(msg);
+        NatureTheme.styleAlert(a);
+        a.showAndWait();
     }
 }
-
